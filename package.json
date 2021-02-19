@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "autoprefixer": "^10.2.4",
+    "didkit-wasm": "file:../didkit/lib/wasm/pkg",
     "navaid": "^1.0.2",
     "postcss": "^8.2.6",
     "svelte-preprocess": "^4.6.9",
