@@ -7,6 +7,11 @@
     // a provider which has a wallet.
     export let web3;
 
+    // TODO: Create Drop-down style, with both cached and live accounts
+    // If selected address is live, and does not have a sybil VC show 
+    // button, rather than iterating over them.
+    // Then can match Marco's UI much closer, when the time comes.
+
     // Accounts in local storage the for the user, but not being shown
     // in the web3 object
     $: cachedAccounts = [];
@@ -183,7 +188,7 @@
             }
 
             return [true, entry];
-        } catch (err) {
+        } catch (_err) {
             // Could use err here, or is it better to be vague?
             return [false, "Error in Uniswap Sybil Verification"];
         }
@@ -274,7 +279,7 @@
     {#if liveAccounts.length || cachedAccounts.length}
         <!-- TODO: An each + concat (or dup?) here -->
         <div class="btn-group">
-            <input />
+            <p>TODO: Make this a drop-down of active accounts</p>
             <button>Issue 30-Day History</button>
             <button>Issue LP History</button>
             <a href="/"><button>Back</button></a>
