@@ -1,110 +1,192 @@
 <script>
+<<<<<<< HEAD
     import BaseLayout from "../components/BaseLayout.svelte";
     import Input from "../components/Input.svelte";
     import SecondaryButton from "../components/SecondaryButton.svelte";
 
+=======
+    import { createSybilVC } from "../util/Uniswap";
+>>>>>>> generalize credential cache retrieval, prepared component state to support design docs
     // Assume top level passes a web3 object with
     // a provider which has a wallet.
     export let web3;
 
-    // TODO: Create Drop-down style, with both cached and live accounts
-    // If selected address is live, and does not have a sybil VC show 
-    // button, rather than iterating over them.
-    // Then can match Marco's UI much closer, when the time comes.
+    /*
+        The local storage representation of credentials.
+        For now, looks like:
+        {
+            "<wallet_address>": {
+                "uniswap": {
+                    // TODO: Define.
+                    "activity": {...},
+                    "liquidity": {...},
+                    "sybil": {
+                        // A VC composed of a DID representation of Uniswap's sybil list.
+                        // TODO: Nail down.
+                    },
+                },
+                "<credential_provider>": {
+                    ...
+                },
+                ...
+            }
+        }
+    */
+    $: cachedCredentialMap = {};
 
-    // Accounts in local storage the for the user, but not being shown
-    // in the web3 object
-    $: cachedAccounts = [];
-    // Held in local storage, keys are addresses,
-    // values are verfied credentials
-    $: cachedSybilCredentialMap = {};
+    // currentAddress is the focus of the UI
+    $: currentAddress = "";
+
     // UI error message.
     $: errorMessage = "";
-    // Connected accounts. Maybe split into unlocked accounts.
-    $: liveAccounts = [];
-    // UI control.
-    $: showSybilVerify = false;
-    // Connect wallets not shown in the cachedSybilCredentialMap
-    // used to generate the verification UI.
-    $: unverifiedSybilWalletMap = {};
+
+    $: loading = false;
+
+    /* 
+        An object with eth addresses as keys and this object as values:
+        {
+            "<address>": {
+                live: boolean,
+                status: {
+                    "activity": boolean,
+                    "liquidity": boolean,
+                    "sybil": boolean,
+                }
+            }
+        }
+    */
+    $: uniswapVCStatusMap = {};
 
     // Get auto complete help when using local storage.
-    const sybilKey = "uniswap_sybil_verified_credentials";
+    const vcLocalStorageKey = "degenissuer_verified_credentials";
 
     // Lifecycle
     const onLoad = () => {
-        // to be assigned to unverifiedSybilWalletMap
-        let unverifiedMap = {};
-
         // object of cached Uniswap Sybil credentials
-        let cached;
-        // JSON String of cached, or null
-        let cachedStr = localStorage.getItem(sybilKey);
+        let cache;
+        // JSON String of cache, or null
+        let cachedStr = localStorage.getItem(vcLocalStorageKey);
 
         // On first load, or after clearing of storage.
         if (!cachedStr) {
-            cached = {};
-            localStorage.setItem(sybilKey, JSON.stringify(cached));
+            cache = {};
+            localStorage.setItem(vcLocalStorageKey, JSON.stringify(cache));
         } else {
-            cached = JSON.parse(cachedStr);
+            cache = JSON.parse(cachedStr);
         }
 
-        // force a UI update.
-        cachedSybilCredentialMap = cached;
-
         // Connected accounts vs...
-        liveAccounts = web3.eth.getAccounts();
+        let liveAccounts = web3.eth.getAccounts();
         // ...cached accounts as an array
-        tempCachedAccounts = cachedSybilCredentialMap.keys();
+        let cachedAccounts = cache.keys();
+        // to be assigned to uniswapVCStatusMap after processing
+        let statusMap = {};
 
         // TODO: Test if accounts are unlocked, then differentiate in the UI.
         for (let i = 0, x = liveAccounts.length; i < x; i++) {
             let wallet = liveAccounts[i];
+            let status = uniswapStatusMapEntry(cache, wallet);
 
-            let cachedVC = cachedSybilCredentialMap[wallet];
-            if (cachedVC) {
-                // Drop live accounts from cached accounts.
-                tempCachedAccounts = tempCachedAccounts.filter(
-                    (x) => x !== wallet
-                );
-            } else {
-                // Add verify UI controls.
-                unverifiedMap[wallet] = {
-                    // UI Controls.
-                    errorMessage: "",
-                    loading: false,
-                    wallet: wallet,
+            statusMap[wallet] = {
+                live: true,
+                status: status,
+            };
+        }
+
+        for (let i = cachedAccounts.length - 1; i >= 0; i--) {
+            let wallet = cachedAccounts[i];
+            if (!statusMap[wallet]) {
+                let status = uniswapStatusMapEntry(cache, wallet);
+
+                statusMap[wallet] = {
+                    live: false,
+                    status: status,
                 };
             }
         }
 
         // force the UI update.
-        unverifiedSybilWalletMap = unverifiedMap;
-        cachedAccounts = tempCachedAccounts;
+        cachedCredentialMap = cached;
+        uniswapVCStatusMap = statusMap;
 
         if (!liveAccounts.length) {
             errorMessage = "No connected Ethereum accounts currently detected";
         }
     };
 
-    // UI logic
-    const toggleSybilCreate = () => {
-        showSybilVerify = !showSybilVerify;
+    // cache operations
+    // Given a wallet, a category, and a list of types, returns a status map
+    const createStatusMap = (
+        cache,
+        wallet,
+        credentialCategory,
+        credentialTypeList
+    ) => {
+        let statusMapEntry = { wallet: wallet };
+
+        for (let i = 0, n = credentialTypeList; i < n; i++) {
+            let credentialType = credentialTypeList[i];
+            statusMapEntry[credentialType] = hasCredentialType(
+                cache,
+                wallet,
+                credentialCategory,
+                credentialType
+            );
+        }
+
+        return statusMapEntry;
+    };
+
+    const hasCredentialType = (
+        cache,
+        wallet,
+        credentialCategory,
+        credentialType
+    ) => {
+        if (!hasCredentials(cache, wallet, credentialCategory)) {
+            return false;
+        }
+
+        return !!cache[wallet][credentialCategory][credentialType];
+    };
+
+    const hasCredentials = (cache, wallet, credentialCategory) => {
+        let isObject = cache && typeof cache === "object";
+        if (!isObject) {
+            return false;
+        }
+
+        let hasWallet = cache[wallet];
+        if (!hasWallet) {
+            return false;
+        }
+
+        let hasCredentialType = hasWallet[credentialCategory];
+
+        return !!hasCredentialType;
+    };
+
+    const uniswapStatusMapEntry = (cache, wallet) => {
+        return createStatusMap(cache, wallet, "uniswap", [
+            "activity",
+            "liquidity",
+            "sybil",
+        ]);
     };
 
     // VC interactions
-    const sybilVerifyEvent = (walletState) => {
-        if (!walletState || typeof walletState !== object) {
-            errorMessage = `App State Error, called without walletState`;
+    const sybilVerifyEvent = (wallet) => {
+        if (!wallet || typeof wallet !== "string") {
+            errorMessage = `App State Error, called without wallet`;
             return;
         }
 
-        walletState.loading = true;
+        loading = true;
 
         // make signing function block and have predictable fail state.
         const signingFn = async (data) => {
             try {
-                let result = await web3.eth.sign(data, walletState.wallet);
+                let result = await web3.eth.sign(data, wallet);
                 return [true, result];
             } catch (err) {
                 return [false, err];
@@ -113,131 +195,36 @@
 
         // retrieve the Sybil list from the network, find the entry
         // in the sybil list, hopefully.
-        let [success, vc] = createSybilVC(walletState.wallet, signingFn);
+        let [success, vc] = createSybilVC(wallet, signingFn);
         if (!success) {
-            walletState.errorMessage = vc;
-            walletState.loading = false;
+            errorMessage = vc;
+            loading = false;
             return;
         }
 
-        // Update the cache.
-        cachedSybilCredentialMap[walletState.wallet] = vc;
+        if (!cachedCredentialMap[wallet]) {
+            cachedCredentialMap[wallet] = {};
+            cachedCredentialMap[wallet].uniswap = {};
+        } else if (!hasCredentials(cachedCredentialMap, wallet, "uniswap")) {
+            cachedCredentialMap[wallet].uniswap = {};
+        }
+
+        cachedCredentialMap[wallet].uniswap.sybil = vc;
+
+        // Save the update to the cache
         localStorage.setItem(
-            sybilKey,
-            JSON.stringify(cachedSybilCredentialMap)
+            vcLocalStorageKey,
+            JSON.stringify(cachedCredentialMap)
         );
 
-        // remove from unverifiedMap
-        let tempUnverifiedMap = {};
-        // We could object delete, but Chrome perf isn't fond of that.
-        unverifiedSybilWalletMap.keys().forEach((key) => {
-            if (key !== walletState.wallet) {
-                tempUnverifiedMap[key] = unverifiedSybilWalletMap[key];
-            }
-        });
-
         // force UI update
-        unverifiedSybilWalletMap = tempUnverifiedMap;
-        cachedSybilCredentialMap = JSON.parse(localStorage.getItem(sybilKey));
+        let tempUniswapMap = uniswapVCStatusMap;
+        tempUniswapMap[wallet].uniswap.sybil = true;
+        uniswapVCStatusMap = tempUniswapMap;
+        cachedCredentialMap = JSON.parse(
+            localStorage.getItem(vcLocalStorageKey)
+        );
     };
-
-    const createSybilVC = async (wallet, signingFn) => {
-        let entry;
-        try {
-            entry = await sybilVerifyRequest(wallet);
-        } catch (err) {
-            let errorMsg = `Failed to verify wallet: ${err}`;
-            return [false, errorMsg];
-        }
-
-        let proof;
-        [success, proof] = signingFn(JSON.stringify(credentialSubject));
-        // Only fails if account is locked.
-        if (!success) {
-            return [false, proof];
-        }
-
-        let vc = makeSybilCredential(wallet, entry, proof);
-
-        vcMap[wallet] = vc;
-        localStorage.setItem(sybilKey, JSON.stringiify(vcMap));
-
-        return [true, vc];
-    };
-
-    // Currently uses Uniswap's list.
-    // Could change to a method that directory queries twitter from tweetID.
-    const sybilVerifyRequest = async (wallet) => {
-        try {
-            let res = await fetch(
-                "https://raw.githubusercontent.com/Uniswap/sybil-list/master/verified.json"
-            );
-
-            if (!res.ok || res.status !== 200) {
-                throw "Bad response from Sybil List";
-            }
-
-            let json = await res.json();
-            if (!json || typeof json !== "object") {
-                throw "Bad response from Sybil List";
-            }
-
-            let entry = json[wallet];
-            if (!isValidSybilEntry(entry)) {
-                throw "Valid entry not found in Sybil List";
-            }
-
-            return [true, entry];
-        } catch (_err) {
-            // Could use err here, or is it better to be vague?
-            return [false, "Error in Uniswap Sybil Verification"];
-        }
-    };
-
-    const isValidSybilEntry = (entry) => {
-        let isObject = entry && typeof entry === "object";
-        if (!isObject) {
-            return false;
-        }
-
-        let hasTwitterEntry =
-            entry.twitter && typeof entry.twitter === "object";
-        if (!hasTwitterEntry) {
-            return false;
-        }
-
-        let { twitter } = entry;
-
-        let hasTimestamp =
-            twitter.timestamp && typeof twitter.timestamp === "number";
-        let hasTweetID = twitter.tweetID && typeof twitter.tweetID === "string";
-        let hasHandle = twitter.handle && typeof twitter.handle === "string";
-
-        return hasTimestamp && hasTweetID && hasHandle;
-    };
-
-    const makeSybilCredential = (wallet, cred, proof) => {
-        let credentialSubject = {
-            id: `did:ethr:${wallet}`,
-            sybil: cred,
-        };
-
-        let vc = {
-            "@context": [
-                "https://www.w3.org/2018/credentials/v1",
-                // TODO: Add specific context?
-            ],
-            // !NOTE What does this need to be?
-            // id: "http://example.edu/credentials/3732",
-            issuer: credentialSubject.id,
-            type: ["VerifiableCredential", "UniswapSybilCredential"],
-            credentialSubject: credentialSubject,
-            proof: proof,
-        };
-
-        return vc;
-    };
-
 </script>
 
 <h2>Uniswap Credentials</h2>
@@ -247,43 +234,17 @@
             <p>{errorMessage}</p>
         </div>
     {/if}
-    {#if unverifiedSybilWalletMap.keys().length}
-        <div>
-            <p>
-                Detected wallets without <a
-                    href="https://sybil.org/#/delegates/uniswap"
-                    >Uniswap Sybil</a
-                > associated Verified Credential.
-            </p>
-            <button onclick={toggleSybilCreate}
-                >{showSybilVerify ? "Hide" : "Show Unverified wallets"}</button
-            >
-            {#if showSybilVerify}
-                <p>
-                    Note: Assumes the targeted wallet(s) has already followed
-                    the process to be approved by Uniswap
-                </p>
-                {#each unverifiedSybilWalletMap as walletState}
-                    <div>
-                        <p>{walletState.wallet}</p>
-                        <button
-                            onclick={() => {
-                                sybilVerifyEvent(walletState);
-                            }}>Verify</button
-                        >
-                    </div>
-                {/each}
-            {/if}
-        </div>
-    {/if}
-    {#if liveAccounts.length || cachedAccounts.length}
-        <!-- TODO: An each + concat (or dup?) here -->
+    <!-- TODO: GET THIS WORKING OFF A DROPDOWN -->
+    {#if uniswapVCStatusMap.keys().length}
+        <!-- TODO ITER OVER STATUS TO CHANGE BUTTON STATE.-->
         <div class="btn-group">
             <p>TODO: Make this a drop-down of active accounts</p>
             <button>Issue 30-Day History</button>
             <button>Issue LP History</button>
             <a href="/"><button>Back</button></a>
         </div>
+    {:else}
+        <div>No live or cached Ethereum wallets detected.</div>
     {/if}
 
     <BaseLayout title="Uniswap Credentials" icon="/uniswap.svg">
