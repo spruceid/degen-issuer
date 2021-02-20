@@ -1,12 +1,9 @@
 <script>
-<<<<<<< HEAD
     import BaseLayout from "../components/BaseLayout.svelte";
     import Input from "../components/Input.svelte";
     import SecondaryButton from "../components/SecondaryButton.svelte";
 
-=======
     import { createSybilVC } from "../util/Uniswap";
->>>>>>> generalize credential cache retrieval, prepared component state to support design docs
     // Assume top level passes a web3 object with
     // a provider which has a wallet.
     export let web3;
@@ -78,7 +75,7 @@
         // Connected accounts vs...
         let liveAccounts = web3.eth.getAccounts();
         // ...cached accounts as an array
-        let cachedAccounts = cache.keys();
+        let cachedAccounts = Object.keys(cache);
         // to be assigned to uniswapVCStatusMap after processing
         let statusMap = {};
 
@@ -93,7 +90,7 @@
             };
         }
 
-        for (let i = cachedAccounts.length - 1; i >= 0; i--) {
+        for (let i = 0, x = cachedAccounts.length; i < x; i++) {
             let wallet = cachedAccounts[i];
             if (!statusMap[wallet]) {
                 let status = uniswapStatusMapEntry(cache, wallet);
@@ -175,7 +172,7 @@
     };
 
     // VC interactions
-    const sybilVerifyEvent = (wallet) => {
+    const issueSybilVC = async (wallet) => {
         if (!wallet || typeof wallet !== "string") {
             errorMessage = `App State Error, called without wallet`;
             return;
@@ -185,17 +182,19 @@
 
         // make signing function block and have predictable fail state.
         const signingFn = async (data) => {
+            console.log("Here!")
             try {
                 let result = await web3.eth.sign(data, wallet);
                 return [true, result];
             } catch (err) {
+                console.log("Here?")
                 return [false, err];
             }
         };
 
         // retrieve the Sybil list from the network, find the entry
         // in the sybil list, hopefully.
-        let [success, vc] = createSybilVC(wallet, signingFn);
+        let [success, vc] = await createSybilVC(wallet, signingFn);
         if (!success) {
             errorMessage = vc;
             loading = false;
@@ -225,31 +224,202 @@
             localStorage.getItem(vcLocalStorageKey)
         );
     };
+
+    // TODO: REMOVE, UI Debub mocks:
+    const debugUIData = () => {
+        let rActive = Math.random() < 0.5;
+        let rLiquid = Math.random() < 0.5;
+        let rSybil = Math.random() < 0.5;
+
+        let dummyCache = {
+            live_all_verified: {
+                live: true,
+                status: {
+                    activity: true,
+                    liquidity: true,
+                    sybil: true,
+                },
+            },
+            live_none_verified: {
+                live: true,
+                status: {
+                    activity: false,
+                    liquidity: false,
+                    sybil: false,
+                },
+            },
+            live_random: {
+                live: true,
+                status: {
+                    activity: rActive,
+                    liquidity: rLiquid,
+                    sybil: rSybil,
+                },
+            },
+            cached_all_verified: {
+                live: false,
+                status: {
+                    activity: true,
+                    liquidity: true,
+                    sybil: true,
+                },
+            },
+            cached_none_verified: {
+                live: false,
+                status: {
+                    activity: false,
+                    liquidity: false,
+                    sybil: false,
+                },
+            },
+
+            cached_random: {
+                live: false,
+                status: {
+                    activity: rActive,
+                    liquidity: rLiquid,
+                    sybil: rSybil,
+                },
+            },
+        };
+
+        console.log("BEFORE");
+        console.log(uniswapVCStatusMap);
+        uniswapVCStatusMap = dummyCache;
+
+        console.log("AFTER");
+        console.log(uniswapVCStatusMap);
+    };
 </script>
 
 <h2>Uniswap Credentials</h2>
 <main>
     {#if errorMessage}
         <div class="error-container">
-            <p>{errorMessage}</p>
+            <p style="color:red">{errorMessage}</p>
         </div>
     {/if}
-    <!-- TODO: GET THIS WORKING OFF A DROPDOWN -->
-    {#if uniswapVCStatusMap.keys().length}
-        <!-- TODO ITER OVER STATUS TO CHANGE BUTTON STATE.-->
-        <div class="btn-group">
-            <p>TODO: Make this a drop-down of active accounts</p>
-            <button>Issue 30-Day History</button>
-            <button>Issue LP History</button>
-            <a href="/"><button>Back</button></a>
-        </div>
-    {:else}
-        <div>No live or cached Ethereum wallets detected.</div>
+    <!-- TODO: REMOVE THIS AS DEBUG  -->
+    <div>
+        <p style="color:red">Debug Mock Data</p>
+        <button
+            on:click={() => {
+                console.log("IN ON CLICK");
+                debugUIData();
+            }}>Start Debug</button
+        >
+    </div>
+    <div>
+        <label for="currentAddress">Choose An Address</label>
+        <select bind:value={currentAddress} name="currentAddress">
+            <option value="">No Address Selected</option>
+            {#each Object.keys(uniswapVCStatusMap) as wallet}
+                {#if uniswapVCStatusMap[wallet].live}
+                    <option value={wallet}>{wallet}</option>
+                {:else}
+                    <option value={wallet}>{wallet} (Not Connected)</option>
+                {/if}
+            {/each}
+        </select>
+    </div>
+    {#if currentAddress}
+        {#if loading}
+            <p>Updating...</p>
+        {:else}
+            <!-- TODO ITER OVER STATUS TO CHANGE BUTTON STATE.-->
+            <div class="btn-group">
+                <button
+                    on:click={() => {
+                        // TODO: IMPLEMENT
+                        alert("Turn into Link");
+                    }}>Show 30-Day Trade History</button
+                >
+                <button
+                    on:click={() => {
+                        // TODO: IMPLEMENT
+                        alert("Turn into Link");
+                    }}>Show 30-Day LP History</button
+                >
+
+                {#if uniswapVCStatusMap[currentAddress].status.activity}
+                    <button
+                        on:click={() => {
+                            // TODO: IMPLEMENT
+                            alert("Issue activity credential");
+                        }}>Issue Trade Activity Credential</button
+                    >
+                {:else if !uniswapVCStatusMap[currentAddress].live}
+                    <button disabled={true}
+                        >Create Trade Activity Credential</button
+                    >
+                    <p style="color:white">
+                        Cannot create new credential with disconnected wallet
+                    </p>
+                {:else}
+                    <button
+                        on:click={() => {
+                            // TODO: IMPLEMENT
+                            alert(
+                                "Query Uniswap API then Create activity credential"
+                            );
+                        }}>Create Trade Activity Credential</button
+                    >
+                {/if}
+
+                {#if uniswapVCStatusMap[currentAddress].status.liquidity}
+                    <button
+                        on:click={() => {
+                            // TODO: IMPLEMENT
+                            alert("Issue liquidity credential");
+                        }}>Issue LP Credential</button
+                    >
+                {:else if !uniswapVCStatusMap[currentAddress].live}
+                    <button disabled>Create LP Credential</button>
+                    <p style="color:white">
+                        Cannot create new credential with disconnected wallet
+                    </p>
+                {:else}
+                    <button
+                        on:click={() => {
+                            // TODO: IMPLEMENT
+                            alert(
+                                "Query Uniswap API then Create liquidity credential"
+                            );
+                        }}>Create LP Credential</button
+                    >
+                {/if}
+
+                {#if uniswapVCStatusMap[currentAddress].status.sybil}
+                    <button
+                        on:click={() => {
+                            // TODO: IMPLEMENT
+                            alert("Issue sybil credential");
+                        }}>Issue Sybil Credential</button
+                    >
+                {:else if !uniswapVCStatusMap[currentAddress].live}
+                    <button disabled>Create Trade Sybil Credential</button>
+                    <p style="color:white">
+                        Cannot create new credential with disconnected wallet
+                    </p>
+                {:else}
+                    <button
+                        on:click={() => {
+                            // TODO: IMPLEMENT
+                            issueSybilVC(currentAddress);
+                        }}>Create Trade Sybil Credential</button
+                    >
+                {/if}
+            </div>
+        {/if}
     {/if}
+<<<<<<< HEAD
 
     <BaseLayout title="Uniswap Credentials" icon="/uniswap.svg">
         <Input />
         <SecondaryButton label="Issue 30-Day History" />
         <SecondaryButton label="Issue LP History" />
     </BaseLayout>
+=======
+    <a href="/"><button>Back</button></a>
+>>>>>>> adds working per-ethereum-address ui, uniswap sybil checking, and debug data to allow simple testing
 </main>

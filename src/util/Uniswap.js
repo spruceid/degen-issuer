@@ -1,22 +1,28 @@
 const uniswapSybilListURL = "https://raw.githubusercontent.com/Uniswap/sybil-list/master/verified.json";
 
 export const createSybilVC = async (wallet, signingFn) => {
-    let entry;
+    console.log("I")
+    let entry, success;
     try {
-        entry = await sybilVerifyRequest(wallet);
+        let [success, entry] = await sybilVerifyRequest(wallet);
+        if (!success) {
+            return [false, entry]
+        }
     } catch (err) {
+        console.log("i")
         let errorMsg = `Failed to verify wallet: ${err}`;
         return [false, errorMsg];
     }
 
-    let [success, jws] = signingFn(JSON.stringify(credentialSubject));
-    // Only fails if account is locked.
+    let jws
+    [success, jws] = await signingFn(JSON.stringify(entry));
     if (!success) {
         return [false, jws];
     }
 
     let proof = makeSybilProof(wallet, jws);
 
+    console.log("IV")
     let vc = makeSybilCredential(wallet, entry, proof);
 
     return [true, vc];
@@ -56,10 +62,12 @@ const sybilVerifyRequest = async (wallet) => {
             throw "Valid entry not found in Sybil List";
         }
 
+        console.log()
+
         return [true, entry];
-    } catch (_err) {
-        // Could use err here, or is it better to be vague?
-        return [false, "Error in Uniswap Sybil Verification"];
+    } catch (err) {
+        // TODO: Be more vague?
+        return [false, err];
     }
 };
 
