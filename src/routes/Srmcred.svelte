@@ -1,9 +1,14 @@
-<h2>Serum Credentials</h2>
-<main>
-	<div class="btn-group">
-        <input>
-		<button>Issue 30-Day History</button>
-        <button>Issue LP History</button>
-        <a href="/"><button>Back</button></a>
-	</div>
-</main>
+<script>
+	import Button from './../components/Button.svelte';
+    import RouteLayout from './../components/RouteLayout.svelte';
+</script>
+
+<RouteLayout>
+    <h2>Serum Credentials</h2>
+    <a href="/"><button>Back</button></a>
+    <div class="btn-group">
+        <input />
+        <Button label="Issue 30-Day History" />
+        <Button label="Issue LP History" />
+    </div>
+</RouteLayout>

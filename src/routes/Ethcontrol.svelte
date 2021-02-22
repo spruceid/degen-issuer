@@ -1,8 +1,12 @@
-<h2>Ethereum Address Controller</h2>
-<main>
-	<div class="btn-group">
-		<button>Connect Wallet</button>
-        <a href="/"><button>Back</button></a>
-	</div>
-</main>
+<script>
+	import Button from './../components/Button.svelte';
+	import RouteLayout from "./../components/RouteLayout.svelte";
+</script>
 
+<RouteLayout>
+	<h2>Ethereum Address Controller</h2>
+	<a href="/"><button>Back</button></a>
+	<div class="btn-group">
+		<Button label="Connect Wallet" />
+	</div>
+</RouteLayout>
