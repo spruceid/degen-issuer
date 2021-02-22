@@ -1,131 +1,126 @@
 const uniswapSybilListURL = "https://raw.githubusercontent.com/Uniswap/sybil-list/master/verified.json";
 
 export const createSybilVC = async (wallet, signingFn) => {
-    console.log("I")
-    let entry, success;
-    try {
-        let [success, entry] = await sybilVerifyRequest(wallet);
-        if (!success) {
-            return [false, entry]
-        }
-    } catch (err) {
-        console.log("i")
-        let errorMsg = `Failed to verify wallet: ${err}`;
-        return [false, errorMsg];
-    }
+	let entry, success;
+	try {
+		let [success, entry] = await sybilVerifyRequest(wallet);
+		if (!success) {
+			return [false, entry];
+		}
+	} catch (err) {
+		let errorMsg = `Failed to verify wallet: ${err}`;
+		return [false, errorMsg];
+	}
 
-    let jws
-    [success, jws] = await signingFn(JSON.stringify(entry));
-    if (!success) {
-        return [false, jws];
-    }
+	let jws;
+	[success, jws] = await signingFn(JSON.stringify(entry));
+	if (!success) {
+		return [false, jws];
+	}
 
-    let proof = makeSybilProof(wallet, jws);
+	let proof = makeSybilProof(wallet, jws);
 
-    console.log("IV")
-    let vc = makeSybilCredential(wallet, entry, proof);
+	let vc = makeSybilCredential(wallet, entry, proof);
 
-    return [true, vc];
+	return [true, vc];
 };
 
 // TODO: Verify format
 const makeSybilProof = (wallet, jws) => {
-    return {
-        type: "Secp256k1SignatureAuthentication2018",
-        // TODO: Fmt?
-        created: Date.now(),
-        proofPurpose: "assertionMethod",
-        verificationMethod: `did:ethr:${wallet}`,
-        jws: jws,
-    };
-}
+	return {
+		type: "Secp256k1SignatureAuthentication2018",
+		// TODO: Fmt?
+		created: Date.now(),
+		proofPurpose: "assertionMethod",
+		verificationMethod: `did:ethr:${wallet}`,
+		jws: jws,
+	};
+};
 
 // Currently uses Uniswap's list.
 // Could change to a method that directory queries twitter from tweetID.
-const sybilVerifyRequest = async (wallet) => {
-    try {
-        let res = await fetch(
-            uniswapSybilListURL
-        );
+export const sybilVerifyRequest = async (wallet) => {
+	try {
+		let res = await fetch(
+			uniswapSybilListURL
+		);
 
-        if (!res.ok || res.status !== 200) {
-            throw "Bad response from Sybil List";
-        }
+		if (!res.ok || res.status !== 200) {
+			throw "Bad response from Sybil List";
+		}
 
-        let json = await res.json();
-        if (!json || typeof json !== "object") {
-            throw "Bad response from Sybil List";
-        }
+		let json = await res.json();
+		if (!json || typeof json !== "object") {
+			throw "Bad response from Sybil List";
+		}
 
-        let entry = json[wallet];
-        if (!isValidSybilEntry(entry)) {
-            throw "Valid entry not found in Sybil List";
-        }
+		let entry = json[wallet];
+		if (!isValidSybilEntry(entry)) {
+			throw "Valid entry not found in Sybil List";
+		}
 
-        console.log()
-
-        return [true, entry];
-    } catch (err) {
-        // TODO: Be more vague?
-        return [false, err];
-    }
+		return [true, entry];
+	} catch (err) {
+		// TODO: Be more vague?
+		return [false, err];
+	}
 };
 
 const isValidSybilEntry = (entry) => {
-    let isObject = entry && typeof entry === "object";
-    if (!isObject) {
-        return false;
-    }
+	let isObject = entry && typeof entry === "object";
+	if (!isObject) {
+		return false;
+	}
 
-    let hasTwitterEntry =
-        entry.twitter && typeof entry.twitter === "object";
-    if (!hasTwitterEntry) {
-        return false;
-    }
+	let hasTwitterEntry =
+		entry.twitter && typeof entry.twitter === "object";
+	if (!hasTwitterEntry) {
+		return false;
+	}
 
-    let { twitter } = entry;
+	let { twitter } = entry;
 
-    let hasTimestamp =
-        twitter.timestamp && typeof twitter.timestamp === "number";
-    let hasTweetID = twitter.tweetID && typeof twitter.tweetID === "string";
-    let hasHandle = twitter.handle && typeof twitter.handle === "string";
+	let hasTimestamp =
+		twitter.timestamp && typeof twitter.timestamp === "number";
+	let hasTweetID = twitter.tweetID && typeof twitter.tweetID === "string";
+	let hasHandle = twitter.handle && typeof twitter.handle === "string";
 
-    return hasTimestamp && hasTweetID && hasHandle;
+	return hasTimestamp && hasTweetID && hasHandle;
 };
 
 const makeSybilCredential = (wallet, cred, proof) => {
-    let credentialSubject = {
-        "@context": "https://w3id.org/did/v1",
-        id: `did:ethr:${wallet}`,
-        publicKey: [
-            {
-                id: `did:ethr:${wallet}#owner`,
-                type: "Secp256k1VerificationKey2018",
-                owner: `did:ethr:${wallet}`,
-                ethereumAddress: wallet,
-            },
-        ],
-        authentication: [
-            {
-                type: "Secp256k1SignatureAuthentication2018",
-                publicKey: `did:ethr:${wallet}#owner`,
-            },
-        ],
-        sybil: cred,
-    };
+	let credentialSubject = {
+		"@context": "https://w3id.org/did/v1",
+		id: `did:ethr:${wallet}`,
+		publicKey: [
+			{
+				id: `did:ethr:${wallet}#owner`,
+				type: "Secp256k1VerificationKey2018",
+				owner: `did:ethr:${wallet}`,
+				ethereumAddress: wallet,
+			},
+		],
+		authentication: [
+			{
+				type: "Secp256k1SignatureAuthentication2018",
+				publicKey: `did:ethr:${wallet}#owner`,
+			},
+		],
+		sybil: cred,
+	};
 
-    let vc = {
-        "@context": [
-            "https://www.w3.org/2018/credentials/v1",
-            // TODO: Add specific context?
-        ],
-        // !NOTE What does this need to be?
-        // id: "http://example.edu/credentials/3732",
-        issuer: credentialSubject.id,
-        type: ["VerifiableCredential", "UniswapSybilCredential"],
-        credentialSubject: credentialSubject,
-        proof: proof,
-    };
+	let vc = {
+		"@context": [
+			"https://www.w3.org/2018/credentials/v1",
+			// TODO: Add specific context?
+		],
+		// !NOTE What does this need to be?
+		// id: "http://example.edu/credentials/3732",
+		issuer: credentialSubject.id,
+		type: ["VerifiableCredential", "UniswapSybilCredential"],
+		credentialSubject: credentialSubject,
+		proof: proof,
+	};
 
-    return vc;
+	return vc;
 };
