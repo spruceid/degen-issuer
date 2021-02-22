@@ -99,7 +99,7 @@ const uniswapQuery = gql`
 		query getTransactions($wallet: String!, $daysBack: Int!) {
 			transactions(where: {user: $wallet, timestamp_gt: $daysBack}) {
 				id
-				tokenAddress
+				user
 				timestamp
 				addLiquidityEvents {
 					id
@@ -143,6 +143,8 @@ const sendActivityQuery = async (wallet, daysBack) => {
 /* Sybil */
 const uniswapSybilListURL = "https://raw.githubusercontent.com/Uniswap/sybil-list/master/verified.json";
 
+// TODO: Change this to just do the VC making signing with a proof?
+// Decoupled from fetch.
 export const createSybilVC = async (wallet, signingFn) => {
 	let entry, success;
 	try {
