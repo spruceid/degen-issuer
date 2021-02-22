@@ -1,3 +1,146 @@
+import { request, gql } from "graphql-request";
+
+/* Uniswap Graph API */
+
+// TODO: Change from hard-coded values to a system that takes a list of
+// Qualifications, makes the largest query needed, then checks all qualifications
+export const getQualifications = async (wallet, daysBack, minTrades, minEth) => {
+	let [success, result] = await sendActivityQuery(wallet, daysBack);
+	if (!success) {
+		return [success, result];
+	}
+
+	let hasData = result && typeof result === "object" && result.data && typeof result.data === "object";
+	if (!hasData) {
+		return [false, "Failed to reach uniswap API"];
+	}
+
+	let { data } = result;
+	let hasTransactions = data.transactions && Array.isArray(data.transactions);
+	if (!hasTransactions) {
+		return [false, "Failed to reach uniswap API"];
+	}
+
+
+	let { transactions } = data;
+	let qualifiedTrades = [];
+	let qualifiedLP = false;
+
+	let lpResult = {
+		qualified: false,
+		qualified_proof: false
+	};
+
+	let tradeEventsResult = {
+		qualified: false,
+		qualified_proof: false
+	};
+
+	// !NOTE:
+	// If revoking, consider grabbing most recent transactions for credentialing
+	for (let i = 0, n = transactions.length; i < n; i++) {
+		let transaction = transactions[i];
+		if (!qualifiedLP && isQualifyingLPEvent(transaction, minEth)) {
+			qualifiedLP = transaction;
+
+			lpResult.qualified = true;
+			lpResult.qualified_proof = qualifiedLP;
+		}
+
+		if (qualifiedTrades.length < minTrades && isQualifyingTradeEvent(transaction)) {
+			qualifiedTrades.push(transaction);
+			if (qualifiedTrades.length >= minTrades) {
+				tradeEventsResult.qualified = true;
+				tradeEventsResult.qualified_proof = qualifiedTrades;
+			}
+		}
+
+		if (qualifiedLP && qualifiedTrades.length >= minTrades) {
+			break;
+		}
+	}
+
+	let outcome = {
+		liquidity: lpResult,
+		activity: tradeEventsResult,
+	};
+
+	return [true, outcome];
+};
+
+const isQualifyingTradeEvent = (transaction) => {
+	let hasEthPurchase = transaction.ethPurchaseEvents && Array.isArray(transaction.ethPurchaseEvents) && transaction.ethPurchaseEvents.length > 0;
+	let hasTokenPurchase = transaction.tokenPurchaseEvents && Array.isArray(transaction.tokenPurchaseEvents) && transaction.tokenPurchaseEvents.length > 0;
+
+	return hasEthPurchase || hasTokenPurchase;
+};
+
+const isQualifyingLPEvent = (transaction, minEth) => {
+	let hasLiquidityEvents = transaction.addLiquidityEvents && Array.isArray(transaction.addLiquidityEvents) && transaction.addLiquidityEvents.length;
+	if (!hasLiquidityEvents) {
+		return false;
+	}
+
+	for (let i = 0, n = transaction.addLiquidityEvents.length; i < n; i++) {
+		let lq = transaction.addLiquidityEvents[i];
+		if (lq.ethAmount && typeof lq.ethAmount === "number" && lq.ethAmount >= minEth) {
+			return true;
+		}
+	}
+
+	return false;
+};
+
+const uniswapAPIEndpoint =
+	"https://api.thegraph.com/subgraphs/name/graphprotocol/uniswap";
+
+
+const uniswapQuery = gql`
+		query getTransactions($wallet: String!, $daysBack: Int!) {
+			transactions(where: {user: $wallet, timestamp_gt: $daysBack}) {
+				id
+				tokenAddress
+				timestamp
+				addLiquidityEvents {
+					id
+					ethAmount
+				}
+				tokenPurchaseEvents {
+					id
+				}
+				ethPurchaseEvents {
+					id
+				}
+		}
+	}`;
+
+const secondsPerDay = 86400;
+const makeDaysBack = (daysBack) => {
+	return Math.floor(Date.now() / 1000) - daysBack * secondsPerDay;
+};
+
+const sendActivityQuery = async (wallet, daysBack) => {
+	let queryArgs = {
+		wallet: wallet,
+	};
+
+
+	try {
+		if (daysBack && typeof daysBack === "number" && daysBack > 0) {
+			queryArgs.daysBack = makeDaysBack(daysBack);
+		} else {
+			throw "No days back unimplemented";
+		}
+
+		let result = await request(uniswapAPIEndpoint, uniswapQuery, queryArgs);
+		return [true, result];
+	} catch (_err) {
+		let errMsg = "Failed to reach uniswap API";
+		return [false, errMsg];
+	}
+};
+
+/* Sybil */
 const uniswapSybilListURL = "https://raw.githubusercontent.com/Uniswap/sybil-list/master/verified.json";
 
 export const createSybilVC = async (wallet, signingFn) => {

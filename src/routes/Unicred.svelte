@@ -7,40 +7,13 @@
 
     /*
 	import { createSybilVC } from "../util/Uniswap";
-	import { request, gql } from "graphql-request";
 
-	/*
-		interface ActivityOpts {
-			// Only include trades over a certain amount of ETH
-			// defaults to 0.
-			per_trade_min?: number,
-			// How many days to go back to meet the threshold
-			// defaults to 0, which means no limit.
-			total_days_back?: number,
-			// The total ETH that must have been moved
-			// defaults to 0.
-			total_trade_min?: number,
-			// number of trades to meet the threshold
-			trade_count?: number,
-		};
-	*/
-	export let activityThreshold;
+	// Assume top level passes a ethereum object with
+	// a provider which has one ore more wallets.
+	export let ethereum;
 
-	/*
-		interface LiquidityOpts {
-			// How much liquidity must be provided.
-			liquidity_eth: number,
-			// How many days to go back to meet the threshold
-			// defaults to 0, which means no limit.
-			total_days_back?: number,
-		};
-	*/
-	export let liquidityThreshold;
-
-	// Assume top level will pass us threshold
-	// Assume top level passes a web3 object with
-	// a provider which has a wallet.
-	export let web3;
+	// TODO: Have lists of thresholds passed down for modular VC qualifications.
+	// Adjust uniswap.js to match.
 
 	/*
         The local storage representation of credentials.
@@ -91,20 +64,8 @@
 	// Get auto complete help when using local storage.
 	const vcLocalStorageKey = "degenissuer_verified_credentials";
 
-	// GQL query makers:
-	// TODO: Add start date.
-	let activityQuery = gql`
-		query exchanges(where: {tokenAddress: $wallet}) {
-			startTime
-			tokenAddress
-			tokenSymbol
-			buyTokenCount
-			sellTokenCount
-			tradeVolumeEth
-		}`;
-
 	// Lifecycle
-	const onLoad = () => {
+	const onLoad = async () => {
 		// object of cached Uniswap Sybil credentials
 		let cache;
 		// JSON String of cache, or null
@@ -119,7 +80,7 @@
 		}
 
 		// Connected accounts vs...
-		let liveAccounts = web3.eth.getAccounts();
+		let liveAccounts = await getConnectedWallets();
 		// ...cached accounts as an array
 		let cachedAccounts = Object.keys(cache);
 		// to be assigned to uniswapVCStatusMap after processing
@@ -221,6 +182,18 @@
 			"liquidity",
 			"sybil",
 		]);
+	};
+
+	// Ethereum Account Interactions
+	const getConnectedWallets = async () => {
+		try {
+			let wallets = await ethereum.request({ method: "eth_requestAccounts" });
+			return wallets;
+		} catch (err) {
+			// TODO: Handle this better?
+			console.error(err);
+			return [];
+		}
 	};
 
 	// VC interactions
