@@ -7,6 +7,7 @@
 
     /*
 	import { createSybilVC } from "../util/Uniswap";
+	import { request, gql } from "graphql-request";
 
 	/*
 		interface ActivityOpts {
@@ -89,6 +90,18 @@
 
 	// Get auto complete help when using local storage.
 	const vcLocalStorageKey = "degenissuer_verified_credentials";
+
+	// GQL query makers:
+	// TODO: Add start date.
+	let activityQuery = gql`
+		query exchanges(where: {tokenAddress: $wallet}) {
+			startTime
+			tokenAddress
+			tokenSymbol
+			buyTokenCount
+			sellTokenCount
+			tradeVolumeEth
+		}`;
 
 	// Lifecycle
 	const onLoad = () => {
@@ -403,136 +416,7 @@
 
 <h2>Uniswap Credentials</h2>
 <main>
-<<<<<<< HEAD
-    {#if errorMessage}
-        <div class="error-container">
-            <p style="color:red">{errorMessage}</p>
-        </div>
-    {/if}
-    <!-- TODO: REMOVE THIS AS DEBUG  -->
-    <div>
-        <p style="color:red">Debug Mock Data</p>
-        <button
-            on:click={() => {
-                console.log("IN ON CLICK");
-                debugUIData();
-            }}>Start Debug</button
-        >
-    </div>
-    <div>
-        <label for="currentAddress">Choose An Address</label>
-        <select bind:value={currentAddress} name="currentAddress">
-            <option value="">No Address Selected</option>
-            {#each Object.keys(uniswapVCStatusMap) as wallet}
-                {#if uniswapVCStatusMap[wallet].live}
-                    <option value={wallet}>{wallet}</option>
-                {:else}
-                    <option value={wallet}>{wallet} (Not Connected)</option>
-                {/if}
-            {/each}
-        </select>
-    </div>
-    {#if currentAddress}
-        {#if loading}
-            <p>Updating...</p>
-        {:else}
-            <!-- TODO ITER OVER STATUS TO CHANGE BUTTON STATE.-->
-            <div class="btn-group">
-                <button
-                    on:click={() => {
-                        // TODO: IMPLEMENT
-                        alert("Turn into Link");
-                    }}>Show 30-Day Trade History</button
-                >
-                <button
-                    on:click={() => {
-                        // TODO: IMPLEMENT
-                        alert("Turn into Link");
-                    }}>Show 30-Day LP History</button
-                >
 
-                {#if uniswapVCStatusMap[currentAddress].status.activity}
-                    <button
-                        on:click={() => {
-                            // TODO: IMPLEMENT
-                            alert("Issue activity credential");
-                        }}>Issue Trade Activity Credential</button
-                    >
-                {:else if !uniswapVCStatusMap[currentAddress].live}
-                    <button disabled={true}
-                        >Create Trade Activity Credential</button
-                    >
-                    <p style="color:white">
-                        Cannot create new credential with disconnected wallet
-                    </p>
-                {:else}
-                    <button
-                        on:click={() => {
-                            // TODO: IMPLEMENT
-                            alert(
-                                "Query Uniswap API then Create activity credential"
-                            );
-                        }}>Create Trade Activity Credential</button
-                    >
-                {/if}
-
-                {#if uniswapVCStatusMap[currentAddress].status.liquidity}
-                    <button
-                        on:click={() => {
-                            // TODO: IMPLEMENT
-                            alert("Issue liquidity credential");
-                        }}>Issue LP Credential</button
-                    >
-                {:else if !uniswapVCStatusMap[currentAddress].live}
-                    <button disabled>Create LP Credential</button>
-                    <p style="color:white">
-                        Cannot create new credential with disconnected wallet
-                    </p>
-                {:else}
-                    <button
-                        on:click={() => {
-                            // TODO: IMPLEMENT
-                            alert(
-                                "Query Uniswap API then Create liquidity credential"
-                            );
-                        }}>Create LP Credential</button
-                    >
-                {/if}
-
-                {#if uniswapVCStatusMap[currentAddress].status.sybil}
-                    <button
-                        on:click={() => {
-                            // TODO: IMPLEMENT
-                            alert("Issue sybil credential");
-                        }}>Issue Sybil Credential</button
-                    >
-                {:else if !uniswapVCStatusMap[currentAddress].live}
-                    <button disabled>Create Trade Sybil Credential</button>
-                    <p style="color:white">
-                        Cannot create new credential with disconnected wallet
-                    </p>
-                {:else}
-                    <button
-                        on:click={() => {
-                            // TODO: IMPLEMENT
-                            issueSybilVC(currentAddress);
-                        }}>Create Trade Sybil Credential</button
-                    >
-                {/if}
-            </div>
-        {/if}
-    {/if}
-<<<<<<< HEAD
-
-    <BaseLayout title="Uniswap Credentials" icon="/uniswap.svg">
-        <Input />
-        <SecondaryButton label="Issue 30-Day History" />
-        <SecondaryButton label="Issue LP History" />
-    </BaseLayout>
-=======
-    <a href="/"><button>Back</button></a>
->>>>>>> adds working per-ethereum-address ui, uniswap sybil checking, and debug data to allow simple testing
-=======
 	{#if errorMessage}
 		<div class="error-container">
 			<p style="color:red">{errorMessage}</p>
@@ -599,7 +483,7 @@
 					<p style="color:white">
 						Cannot create new credential with disconnected wallet
 					</p>
-				<!-- TODO: Add qualifications check here -->
+					<!-- TODO: Add qualifications check here -->
 				{:else}
 					<button
 						on:click={() => {
@@ -621,7 +505,7 @@
 					<p style="color:white">
 						Cannot create new credential with disconnected wallet
 					</p>
-				<!-- TODO: Add qualifications check here -->
+					<!-- TODO: Add qualifications check here -->
 				{:else}
 					<button
 						on:click={() => {
@@ -654,6 +538,11 @@
 			</div>
 		{/if}
 	{/if}
+
+    <BaseLayout title="Uniswap Credentials" icon="/uniswap.svg">
+        <Input />
+        <SecondaryButton label="Issue 30-Day History" />
+        <SecondaryButton label="Issue LP History" />
+    </BaseLayout>
 	<a href="/"><button>Back</button></a>
->>>>>>> updated to include qualifications in state to best show the UI for live accounts
 </main>
