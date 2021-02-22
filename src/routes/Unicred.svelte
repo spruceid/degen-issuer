@@ -3,10 +3,11 @@
     import Input from "../components/Input.svelte";
     import SecondaryButton from "../components/SecondaryButton.svelte";
 
-    import { createSybilVC } from "../util/Uniswap";
-
-    /*
-	import { createSybilVC } from "../util/Uniswap";
+	import {
+		createSybilVC,
+		getQualifications,
+		sybilVerifyRequest,
+	} from "../uniswap";
 
 	// Assume top level passes a ethereum object with
 	// a provider which has one ore more wallets.
@@ -14,7 +15,6 @@
 
 	// TODO: Have lists of thresholds passed down for modular VC qualifications.
 	// Adjust uniswap.js to match.
-
 	/*
         The local storage representation of credentials.
         For now, looks like:
@@ -51,10 +51,17 @@
         {
             "<address>": {
                 live: boolean,
+				loading: boolean,
                 status: {
-                    "activity": boolean,
-                    "liquidity": boolean,
-                    "sybil": boolean,
+                    activity: {
+						cached: boolean,
+						qualified: boolean,
+						qualified_check: boolean,
+						qualified_proof: boolean | JSON for credential,
+						qualified_err: string
+					},
+                    liquidity: { ... },
+                    sybil: { ... },
                 }
             }
         }
@@ -120,7 +127,7 @@
 
 	// cache operations
 	// Given a wallet, a category, and a list of types, returns a status map
-	const createStatusMap = (
+	const createStatusMapEntry = (
 		cache,
 		wallet,
 		credentialCategory,
@@ -141,6 +148,8 @@
 				cached: cached,
 				qualified: cached,
 				qualified_check: false,
+				qualified_proof: false,
+				qualified_err: "",
 			};
 		}
 
@@ -177,7 +186,7 @@
 	};
 
 	const uniswapStatusMapEntry = (cache, wallet) => {
-		return createStatusMap(cache, wallet, "uniswap", [
+		return createStatusMapEntry(cache, wallet, "uniswap", [
 			"activity",
 			"liquidity",
 			"sybil",
@@ -197,6 +206,78 @@
 	};
 
 	// VC interactions
+	const checkQualifications = async (wallet) => {
+		let entry = uniswapVCStatusMap[wallet];
+		if (!entry) {
+			errorMessage = `Could not find wallet ${wallet} in StatusMap`;
+			return;
+		}
+
+		entry.loading = true;
+
+		// Force UI Change.
+		uniswapVCStatusMap[wallet] = entry;
+		uniswapVCStatusMap = uniswapVCStatusMap;
+
+		if (!entry.status.sybil.cached && !entry.status.sybil.qualified_check) {
+			// TODO: exchange for qualified proof here.
+			let [success, sybilResult] = await sybilVerifyRequest(wallet);
+			entry.status.sybil.qualified_check = true;
+			if (success) {
+				entry.status.sybil.qualified = true;
+				entry.status.sybil.qualified_proof = sybilResult;
+			} else {
+				entry.status.sybil.qualified_err = sybilResult;
+			}
+		}
+
+		let hasActiveTrades =
+			!entry.status.activity.cached && !entry.status.activity.qualified_check;
+		let hasLiquidity =
+			!entry.status.liquidity.cached && !entry.status.liquidity.qualified_check;
+
+		if (!hasActiveTrades || !hasLiquidity) {
+			let daysBack = 30,
+				minTrades = 5,
+				minEth = 1;
+
+			let [success, result] = await getQualifications(
+				wallet,
+				daysBack,
+				minTrades,
+				minEth
+			);
+
+			entry.status.activity.qualified_check = true;
+			entry.status.liquidity.qualified_check = true;
+
+			if (success) {
+				let { activity, liquidity } = result;
+
+				entry.status.activity.qualified = activity.qualified;
+				entry.status.activity.qualified_proof = activity.qualified_proof;
+				if (!activity.qualified) {
+					entry.status.activity.qualified_err = "Not enough activity";
+				}
+
+				entry.status.liquidity.qualified = liquidity.qualified;
+				entry.status.liquidity.qualified_proof = liquidity.qualified_proof;
+				if (!liquidity.qualified) {
+					entry.status.liquidity.qualified_err = "Not enough activity";
+				}
+			} else {
+				entry.status.activity.qualified_err = result;
+				entry.status.liquidity.qualified_err = result;
+			}
+		}
+
+		entry.loading = false;
+
+		// Force UI Change.
+		uniswapVCStatusMap[wallet] = entry;
+		uniswapVCStatusMap = uniswapVCStatusMap;
+	};
+
 	const issueSybilVC = async (wallet) => {
 		if (!wallet || typeof wallet !== "string") {
 			errorMessage = `App State Error, called without wallet`;
@@ -243,7 +324,7 @@
 
 		// force UI update
 		let tempUniswapMap = uniswapVCStatusMap;
-		tempUniswapMap[wallet].uniswap.sybil = true;
+		tempUniswapMap[wallet].uniswap.sybil.cached = true;
 		uniswapVCStatusMap = tempUniswapMap;
 		cachedCredentialMap = JSON.parse(localStorage.getItem(vcLocalStorageKey));
 	};
@@ -389,7 +470,6 @@
 
 <h2>Uniswap Credentials</h2>
 <main>
-
 	{#if errorMessage}
 		<div class="error-container">
 			<p style="color:red">{errorMessage}</p>
@@ -410,8 +490,9 @@
 		<label for="currentAddress">Choose An Address</label>
 		<select
 			bind:value={currentAddress}
-			on:change={() => {
+			on:blur={() => {
 				console.log("Look up qualifications here");
+				checkQualifications(currentAddress);
 			}}
 			name="currentAddress"
 		>
@@ -426,7 +507,7 @@
 		</select>
 	</div>
 	{#if currentAddress}
-		{#if loading}
+		{#if loading || uniswapVCStatusMap[currentAddress].loading}
 			<p>Updating...</p>
 		{:else}
 			<!-- TODO ITER OVER STATUS TO CHANGE BUTTON STATE.-->
@@ -451,19 +532,25 @@
 							alert("Issue activity credential");
 						}}>Issue Trade Activity Credential</button
 					>
-				{:else if !uniswapVCStatusMap[currentAddress].live && !uniswapVCStatusMap[currentAddress].status.activity.cached}
+				{:else if !uniswapVCStatusMap[currentAddress].live && uniswapVCStatusMap[currentAddress].status.activity.qualified}
 					<button disabled={true}>Create Trade Activity Credential</button>
 					<p style="color:white">
 						Cannot create new credential with disconnected wallet
 					</p>
 					<!-- TODO: Add qualifications check here -->
-				{:else}
+				{:else if uniswapVCStatusMap[currentAddress].status.activity.qualified}
 					<button
 						on:click={() => {
 							// TODO: IMPLEMENT
 							alert("Query Uniswap API then Create activity credential");
 						}}>Create Trade Activity Credential</button
 					>
+				{:else if uniswapVCStatusMap[currentAddress].status.activity.qualified_err}
+					<p style="color:white;">
+						Does not qualify for trade activity: {uniswapVCStatusMap[
+							currentAddress
+						].status.activity.qualified_err}
+					</p>
 				{/if}
 
 				{#if uniswapVCStatusMap[currentAddress].status.liquidity.cached}
@@ -473,19 +560,25 @@
 							alert("Issue liquidity credential");
 						}}>Issue LP Credential</button
 					>
-				{:else if !uniswapVCStatusMap[currentAddress].live && !uniswapVCStatusMap[currentAddress].status.liquidity.cached}
+				{:else if !uniswapVCStatusMap[currentAddress].live && uniswapVCStatusMap[currentAddress].status.liquidity.qualified}
 					<button disabled>Create LP Credential</button>
 					<p style="color:white">
 						Cannot create new credential with disconnected wallet
 					</p>
 					<!-- TODO: Add qualifications check here -->
-				{:else}
+				{:else if uniswapVCStatusMap[currentAddress].status.liquidity.qualified}
 					<button
 						on:click={() => {
 							// TODO: IMPLEMENT
 							alert("Query Uniswap API then Create liquidity credential");
 						}}>Create LP Credential</button
 					>
+				{:else if uniswapVCStatusMap[currentAddress].status.liquidity.qualified_err}
+					<p style="color:white;">
+						Does not qualify for LP activity: {uniswapVCStatusMap[
+							currentAddress
+						].status.liquidity.qualified_err}
+					</p>
 				{/if}
 
 				{#if uniswapVCStatusMap[currentAddress].status.sybil.cached}
@@ -495,18 +588,24 @@
 							alert("Issue sybil credential");
 						}}>Issue Sybil Credential</button
 					>
-				{:else if !uniswapVCStatusMap[currentAddress].live && !uniswapVCStatusMap[currentAddress].status.liquidity.cached}
+				{:else if !uniswapVCStatusMap[currentAddress].live && uniswapVCStatusMap[currentAddress].status.sybil.qualified}
 					<button disabled>Create Trade Sybil Credential</button>
 					<p style="color:white">
 						Cannot create new credential with disconnected wallet
 					</p>
-				{:else}
+				{:else if uniswapVCStatusMap[currentAddress].status.sybil.qualified}
 					<button
 						on:click={() => {
 							// TODO: IMPLEMENT
 							issueSybilVC(currentAddress);
 						}}>Create Trade Sybil Credential</button
 					>
+				{:else if uniswapVCStatusMap[currentAddress].status.sybil.qualified_err}
+					<p style="color:white;">
+						Does not qualify for LP activity: {uniswapVCStatusMap[
+							currentAddress
+						].status.sybil.qualified_err}
+					</p>
 				{/if}
 			</div>
 		{/if}
@@ -518,4 +617,10 @@
         <SecondaryButton label="Issue LP History" />
     </BaseLayout>
 	<a href="/"><button>Back</button></a>
+
+	<BaseLayout title="Uniswap Credentials" icon="/uniswap.svg">
+        <Input />
+        <SecondaryButton label="Issue 30-Day History" />
+        <SecondaryButton label="Issue LP History" />
+    </BaseLayout>
 </main>
