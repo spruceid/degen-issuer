@@ -1,9 +1,14 @@
-<h2>Uniswap Credentials</h2>
-<main>
+<script>
+	import Button from './../components/Button.svelte';
+	import RouteLayout from "./../components/RouteLayout.svelte";
+</script>
+
+<RouteLayout>
+    <h2>Uniswap Credentials</h2>
+    <a href="/"><button>Back</button></a>
 	<div class="btn-group">
         <input>
-		<button>Issue 30-Day History</button>
-        <button>Issue LP History</button>
-        <a href="/"><button>Back</button></a>
+		<Button label="Issue 30-Day History" />
+        <Button label="Issue LP History" />
 	</div>
-</main>
+</RouteLayout>

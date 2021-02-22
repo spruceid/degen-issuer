@@ -7,7 +7,11 @@
     "start": "sirv public"
   },
   "dependencies": {
-    "navaid": "^1.0.2"
+    "autoprefixer": "^10.2.4",
+    "navaid": "^1.0.2",
+    "postcss": "^8.2.6",
+    "svelte-preprocess": "^4.6.9",
+    "tailwindcss": "^2.0.3"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^17.0.0",
