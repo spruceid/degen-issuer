@@ -272,50 +272,122 @@
 			live_all_verified: {
 				live: true,
 				status: {
-					activity: true,
-					liquidity: true,
-					sybil: true,
+					activity: {
+						cached: true,
+						qualified: true,
+						qualified_check: false,
+					},
+					liquidity: {
+						cached: true,
+						qualified: true,
+						qualified_check: false,
+					},
+					sybil: {
+						cached: true,
+						qualified: true,
+						qualified_check: false,
+					},
 				},
 			},
 			live_none_verified: {
 				live: true,
 				status: {
-					activity: false,
-					liquidity: false,
-					sybil: false,
+					activity: {
+						cached: false,
+						qualified: true,
+						qualified_check: false,
+					},
+					liquidity: {
+						cached: false,
+						qualified: true,
+						qualified_check: false,
+					},
+					sybil: {
+						cached: false,
+						qualified: true,
+						qualified_check: false,
+					},
 				},
 			},
 			live_random: {
 				live: true,
 				status: {
-					activity: rActive,
-					liquidity: rLiquid,
-					sybil: rSybil,
+					activity: {
+						cached: rActive,
+						qualified: true,
+						qualified_check: false,
+					},
+					liquidity: {
+						cached: rLiquid,
+						qualified: true,
+						qualified_check: false,
+					},
+					sybil: {
+						cached: rSybil,
+						qualified: true,
+						qualified_check: false,
+					},
 				},
 			},
 			cached_all_verified: {
 				live: false,
 				status: {
-					activity: true,
-					liquidity: true,
-					sybil: true,
+					activity: {
+						cached: true,
+						qualified: true,
+						qualified_check: false,
+					},
+					liquidity: {
+						cached: true,
+						qualified: true,
+						qualified_check: false,
+					},
+					sybil: {
+						cached: true,
+						qualified: true,
+						qualified_check: false,
+					},
 				},
 			},
 			cached_none_verified: {
 				live: false,
 				status: {
-					activity: false,
-					liquidity: false,
-					sybil: false,
+					activity: {
+						cached: false,
+						qualified: true,
+						qualified_check: false,
+					},
+					liquidity: {
+						cached: false,
+						qualified: true,
+						qualified_check: false,
+					},
+					sybil: {
+						cached: false,
+						qualified: true,
+						qualified_check: false,
+					},
 				},
 			},
 
 			cached_random: {
 				live: false,
 				status: {
-					activity: rActive,
-					liquidity: rLiquid,
-					sybil: rSybil,
+					activity: {
+						cached: rActive,
+						qualified: true,
+						qualified_check: false,
+					},
+					liquidity: {
+						cached: rLiquid,
+						qualified: true,
+						qualified_check: false,
+					},
+					sybil: {
+						cached: rSybil,
+						qualified: true,
+						qualified_check: false,
+					},
 				},
 			},
 		};
@@ -476,9 +548,16 @@
 			}}>Start Debug</button
 		>
 	</div>
+	<!-- TODO: On blur, test for qualifications. -->
 	<div>
 		<label for="currentAddress">Choose An Address</label>
-		<select bind:value={currentAddress} name="currentAddress">
+		<select
+			bind:value={currentAddress}
+			on:change={() => {
+				console.log("Look up qualifications here");
+			}}
+			name="currentAddress"
+		>
 			<option value="">No Address Selected</option>
 			{#each Object.keys(uniswapVCStatusMap) as wallet}
 				{#if uniswapVCStatusMap[wallet].live}
@@ -515,11 +594,12 @@
 							alert("Issue activity credential");
 						}}>Issue Trade Activity Credential</button
 					>
-				{:else if !uniswapVCStatusMap[currentAddress].live && uniswapVCStatusMap[currentAddress].status.activity.cached}
+				{:else if !uniswapVCStatusMap[currentAddress].live && !uniswapVCStatusMap[currentAddress].status.activity.cached}
 					<button disabled={true}>Create Trade Activity Credential</button>
 					<p style="color:white">
 						Cannot create new credential with disconnected wallet
 					</p>
+				<!-- TODO: Add qualifications check here -->
 				{:else}
 					<button
 						on:click={() => {
@@ -536,11 +616,12 @@
 							alert("Issue liquidity credential");
 						}}>Issue LP Credential</button
 					>
-				{:else if !uniswapVCStatusMap[currentAddress].live}
+				{:else if !uniswapVCStatusMap[currentAddress].live && !uniswapVCStatusMap[currentAddress].status.liquidity.cached}
 					<button disabled>Create LP Credential</button>
 					<p style="color:white">
 						Cannot create new credential with disconnected wallet
 					</p>
+				<!-- TODO: Add qualifications check here -->
 				{:else}
 					<button
 						on:click={() => {
@@ -557,7 +638,7 @@
 							alert("Issue sybil credential");
 						}}>Issue Sybil Credential</button
 					>
-				{:else if !uniswapVCStatusMap[currentAddress].live}
+				{:else if !uniswapVCStatusMap[currentAddress].live && !uniswapVCStatusMap[currentAddress].status.liquidity.cached}
 					<button disabled>Create Trade Sybil Credential</button>
 					<p style="color:white">
 						Cannot create new credential with disconnected wallet
