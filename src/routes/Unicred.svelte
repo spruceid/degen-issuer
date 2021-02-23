@@ -589,6 +589,7 @@
 		{:else}
 			<!-- TODO ITER OVER STATUS TO CHANGE BUTTON STATE.-->
 			<div class="btn-group">
+			  <!-- TODO: Restore if history display is desire/implemented
 				<button
 					on:click={() => {
 						// TODO: IMPLEMENT
@@ -601,6 +602,7 @@
 						alert("Turn into Link");
 					}}>Show 30-Day LP History</button
 				>
+				-->
 
 				<QualifiedCredentialButton
 					credentialKey="activity"
