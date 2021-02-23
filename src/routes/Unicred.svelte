@@ -4,11 +4,12 @@
     import SecondaryButton from "../components/SecondaryButton.svelte";
 
 	import {
-		createSybilVC,
 		getQualifications,
 		sybilVerifyRequest,
 		makeEthProof,
-		makeSybilCredential,
+		makeUniswapSybilVC,
+		makeUniswapTradeActivityVC,
+		makeUniswapLiquidityVC,
 	} from "../uniswap";
 
 	import QualifiedCredentialButton from "../components/QualifiedCredentialButton.svelte";
@@ -298,33 +299,52 @@
 		uniswapVCStatusMap = uniswapVCStatusMap;
 	};
 
-	const cacheSybilVC = async (wallet) => {
-		let sybilEntry = uniswapVCStatusMap[wallet]?.status?.sybil?.qualified_proof;
-		if (!sybilEntry) {
-			errorMessage = "Error creating Sybil Credential";
+	const cacheVC = async (wallet, vcKey) => {
+		let targetWalletStatus = uniswapVCStatusMap[wallet]?.status;
+		if (!targetWalletStatus) {
+			errorMessage = `Error creating ${vcKey} credential`;
 			return;
 		}
 
-		// TODO: Actually make into JWS before making proof.
-		let proof = makeEthProof(sybilEntry);
-		let vc = makeSybilCredential(wallet, sybilEntry, proof);
+		let vcEntry = targetWalletStatus[vcKey];
+		if (!targetWalletStatus) {
+			errorMessage = `Error creating ${vcKey} credential`;
+			return;
+		}
+
+		let cred = vcEntry.qualified_proof;
+
+		let proof = makeEthProof(wallet, cred);
+		let vc;
+		switch (vcKey) {
+			case "sybil":
+				vc = makeUniswapSybilVC(wallet, cred, proof);
+				break;
+			case "activity":
+				vc = makeUniswapTradeActivityVC(wallet, cred, proof);
+				break;
+			case "liquidity":
+				vc = makeUniswapLiquidityVC(wallet, cred, proof);
+				break;
+			default:
+				errorMessage = `Unknown credential: ${vcKey}`;
+				return;
+		}
 
 		// DEBUG: should be set up already.
 		if (!cachedCredentialMap[wallet]) {
 			cachedCredentialMap[wallet] = { uniswap: {} };
 		}
 
-		cachedCredentialMap[wallet].uniswap.sybil = vc;
-
-		// Save the update to the cache
+		cachedCredentialMap[wallet].uniswap[vcKey] = vc;
 		localStorage.setItem(
 			vcLocalStorageKey,
 			JSON.stringify(cachedCredentialMap)
 		);
 
-		// force UI update
+		// Force UI Update
 		let tempUniswapMap = uniswapVCStatusMap;
-		tempUniswapMap[wallet].status.sybil.cached = true;
+		tempUniswapMap[wallet].status[vcKey].cached = true;
 		uniswapVCStatusMap = tempUniswapMap;
 		cachedCredentialMap = JSON.parse(localStorage.getItem(vcLocalStorageKey));
 	};
@@ -588,7 +608,7 @@
 						alert("Implement Activity Issue Func");
 					}}
 					createFunc={() => {
-						alert("Implement Activity Create Func");
+						cacheVC(currentAddress, "activity");
 					}}
 				/>
 
@@ -600,7 +620,7 @@
 						alert("Implement LP Issue Func");
 					}}
 					createFunc={() => {
-						alert("Implement LP Create Func");
+						cacheVC(currentAddress, "liquidity");
 					}}
 				/>
 
@@ -612,7 +632,7 @@
 						alert("Implement Sybil Issue Func");
 					}}
 					createFunc={() => {
-						cacheSybilVC(currentAddress);
+						cacheVC(currentAddress, "sybil");
 					}}
 				/>
 			</div>

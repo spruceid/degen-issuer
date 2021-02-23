@@ -122,7 +122,6 @@ const sendActivityQuery = async (wallet, daysBack) => {
 		wallet: wallet,
 	};
 
-
 	try {
 		if (daysBack && typeof daysBack === "number" && daysBack > 0) {
 			queryArgs.daysBack = makeDaysBack(daysBack);
@@ -140,25 +139,6 @@ const sendActivityQuery = async (wallet, daysBack) => {
 
 /* Sybil */
 const uniswapSybilListURL = "https://raw.githubusercontent.com/Uniswap/sybil-list/master/verified.json";
-
-// TODO: Change this to just do the VC making signing with a proof?
-// Decoupled from fetch.
-export const createSybilVC = async (wallet, signingFn) => {
-	let entry, success;
-	try {
-		let [success, entry] = await sybilVerifyRequest(wallet);
-		if (!success) {
-          throw entry;
-		}
-		let jws = await signingFn(JSON.stringify(entry));
-		let proof = makeEthProof(wallet, jws);
-		let vc = makeSybilCredential(wallet, entry, proof);
-		return [true, vc];
-	} catch (err) {
-		let errorMsg = `Failed to verify wallet: ${err}`;
-		return [false, errorMsg];
-	}
-};
 
 // TODO: Verify format
 export const makeEthProof = (wallet, jws) => {
@@ -223,10 +203,21 @@ const isValidSybilEntry = (entry) => {
 	return hasTimestamp && hasTweetID && hasHandle;
 };
 
-export const makeSybilCredential = (wallet, cred, proof) => {
+/*  credOpts is an object that looks like:
+{
+	cred: JSON Value, // the specific details for a property in the credentialSubject
+	credKey: string, // the key at which cred is found in the credentialSubject
+	credType: string, // the type to be used in the VC type array.
+	credSubjectContext: string | false, // the context to be used in the Credential Subject @context
+	credVCContext: string | false, // the context to be used in the VC @context.
+	credVCID: string | false, // the id of the VC.
+}
+*/
+export const makeEthVC = (wallet, credOpts, proof) => {
+	let { cred, credKey, credType, credVCContext, credSubjectContext, credVCID } = credOpts;
+
 	let credentialSubject = {
-		// TODO: Add specific context?
-		"@context": "https://w3id.org/did/v1",
+		"@context": ["https://w3id.org/did/v1"],
 		id: `did:ethr:${wallet}`,
 		publicKey: [
 			{
@@ -242,21 +233,69 @@ export const makeSybilCredential = (wallet, cred, proof) => {
 				publicKey: `did:ethr:${wallet}#owner`,
 			},
 		],
-		sybil: cred,
 	};
+
+	credentialSubject[credKey] = cred;
+	if (credSubjectContext) {
+		credentialSubject["@context"].push(credSubjectContext);
+	}
 
 	let vc = {
 		"@context": [
 			"https://www.w3.org/2018/credentials/v1",
-			// TODO: Add specific context?
 		],
-		// !NOTE What does this need to be?
-		// id: "http://example.edu/credentials/3732",
 		issuer: credentialSubject.id,
-		type: ["VerifiableCredential", "UniswapSybilCredential"],
+		type: ["VerifiableCredential", credType],
 		credentialSubject: credentialSubject,
 		proof: proof,
 	};
 
+	if (credVCContext) {
+		vc["@context"].push(credVCContext);
+	}
+
+	if (credVCID) {
+		vc.id = credVCID;
+	}
+
 	return vc;
+};
+
+export const makeUniswapSybilVC = (wallet, cred, proof) => {
+	let opts = {
+		cred: cred,
+		credKey: "sybil",
+		credType: "UniswapSybilCredential",
+		// TODO: Define the below:
+		credSubjectContext: false,
+		credVCContext: false,
+		credVCID: false
+	};
+	return makeEthVC(wallet, opts, proof);
+};
+
+export const makeUniswapTradeActivityVC = (wallet, cred, proof) => {
+	let opts = {
+		cred: cred,
+		credKey: "activity",
+		credType: "UniswapTradeActivityCredential",
+		// TODO: Define the below:
+		credSubjectContext: false,
+		credVCContext: false,
+		credVCID: false
+	};
+	return makeEthVC(wallet, opts, proof);
+};
+
+export const makeUniswapLiquidityVC = (wallet, cred, proof) => {
+	let opts = {
+		cred: cred,
+		credKey: "liquidity",
+		credType: "UniswapLiquidityCredential",
+		// TODO: Define the below:
+		credSubjectContext: false,
+		credVCContext: false,
+		credVCID: false
+	};
+	return makeEthVC(wallet, opts, proof);
 };
