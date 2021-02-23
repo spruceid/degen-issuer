@@ -9,12 +9,15 @@
 		sybilVerifyRequest,
 	} from "../uniswap";
 
+	import QualifiedCredentialButton from "../components/QualifiedCredentialButton.svelte";
+
 	// Assume top level passes a ethereum object with
-	// a provider which has one ore more wallets.
+	// a provider which has one or more wallets.
 	export let ethereum;
 
 	// TODO: Have lists of thresholds passed down for modular VC qualifications.
 	// Adjust uniswap.js to match.
+
 	/*
         The local storage representation of credentials.
         For now, looks like:
@@ -67,6 +70,11 @@
         }
     */
 	$: uniswapVCStatusMap = {};
+
+	// An object with eth addresses as keys and array of GraphQL transactions
+	// as values.
+	// TODO: Cache in local storage?
+	$: uniswapTradeHistoryMap = {};
 
 	// Get auto complete help when using local storage.
 	const vcLocalStorageKey = "degenissuer_verified_credentials";
@@ -231,12 +239,12 @@
 			}
 		}
 
-		let hasActiveTrades =
+		let needsActiveTrades =
 			!entry.status.activity.cached && !entry.status.activity.qualified_check;
-		let hasLiquidity =
+		let needsLiquidity =
 			!entry.status.liquidity.cached && !entry.status.liquidity.qualified_check;
 
-		if (!hasActiveTrades || !hasLiquidity) {
+		if (needsActiveTrades || needsLiquidity) {
 			let daysBack = 30,
 				minTrades = 5,
 				minEth = 1;
@@ -252,19 +260,17 @@
 			entry.status.liquidity.qualified_check = true;
 
 			if (success) {
-				let { activity, liquidity } = result;
+				let { activity, liquidity, transactions } = result;
+
+				uniswapTradeHistoryMap[wallet] = result;
 
 				entry.status.activity.qualified = activity.qualified;
 				entry.status.activity.qualified_proof = activity.qualified_proof;
-				if (!activity.qualified) {
-					entry.status.activity.qualified_err = "Not enough activity";
-				}
+				entry.status.activity.qualified_err = activity.qualified_err;
 
 				entry.status.liquidity.qualified = liquidity.qualified;
 				entry.status.liquidity.qualified_proof = liquidity.qualified_proof;
-				if (!liquidity.qualified) {
-					entry.status.liquidity.qualified_err = "Not enough activity";
-				}
+				entry.status.liquidity.qualified_err = liquidity.qualified_err;
 			} else {
 				entry.status.activity.qualified_err = result;
 				entry.status.liquidity.qualified_err = result;
@@ -338,6 +344,7 @@
 		let dummyCache = {
 			live_all_verified: {
 				live: true,
+				loading: false,
 				status: {
 					activity: {
 						cached: true,
@@ -358,6 +365,7 @@
 			},
 			live_none_verified: {
 				live: true,
+				loading: false,
 				status: {
 					activity: {
 						cached: false,
@@ -378,6 +386,7 @@
 			},
 			live_random: {
 				live: true,
+				loading: false,
 				status: {
 					activity: {
 						cached: rActive,
@@ -398,6 +407,7 @@
 			},
 			cached_all_verified: {
 				live: false,
+				loading: false,
 				status: {
 					activity: {
 						cached: true,
@@ -418,6 +428,7 @@
 			},
 			cached_none_verified: {
 				live: false,
+				loading: false,
 				status: {
 					activity: {
 						cached: false,
@@ -439,6 +450,7 @@
 
 			cached_random: {
 				live: false,
+				loading: false,
 				status: {
 					activity: {
 						cached: rActive,
@@ -457,13 +469,65 @@
 					},
 				},
 			},
+
+			"0x8d07D225a769b7Af3A923481E1FdF49180e6A265": {
+				live: true,
+				loading: false,
+				status: {
+					activity: {
+						cached: false,
+						qualified: false,
+						qualified_check: false,
+						qualified_proof: false,
+						qualified_err: "",
+					},
+					liquidity: {
+						cached: false,
+						qualified: false,
+						qualified_check: false,
+						qualified_proof: false,
+						qualified_err: "",
+					},
+					sybil: {
+						cached: false,
+						qualified: false,
+						qualified_check: false,
+						qualified_proof: false,
+						qualified_err: "",
+					},
+				},
+			},
+
+			"0x0000000000000eb4ec62758aae93400b3e5f7f18": {
+				live: true,
+				loading: false,
+				status: {
+					activity: {
+						cached: false,
+						qualified: false,
+						qualified_check: false,
+						qualified_proof: false,
+						qualified_err: "",
+					},
+					liquidity: {
+						cached: false,
+						qualified: false,
+						qualified_check: false,
+						qualified_proof: false,
+						qualified_err: "",
+					},
+					sybil: {
+						cached: false,
+						qualified: false,
+						qualified_check: false,
+						qualified_proof: false,
+						qualified_err: "",
+					},
+				},
+			},
 		};
 
-		console.log("BEFORE");
-		console.log(uniswapVCStatusMap);
 		uniswapVCStatusMap = dummyCache;
-
-		console.log("AFTER");
 		console.log(uniswapVCStatusMap);
 	};
 </script>
@@ -490,7 +554,7 @@
 		<label for="currentAddress">Choose An Address</label>
 		<select
 			bind:value={currentAddress}
-			on:blur={() => {
+			on:change={() => {
 				console.log("Look up qualifications here");
 				checkQualifications(currentAddress);
 			}}
@@ -508,7 +572,7 @@
 	</div>
 	{#if currentAddress}
 		{#if loading || uniswapVCStatusMap[currentAddress].loading}
-			<p>Updating...</p>
+			<p style="color:white">Updating...</p>
 		{:else}
 			<!-- TODO ITER OVER STATUS TO CHANGE BUTTON STATE.-->
 			<div class="btn-group">
@@ -525,88 +589,41 @@
 					}}>Show 30-Day LP History</button
 				>
 
-				{#if uniswapVCStatusMap[currentAddress].status.activity.cached}
-					<button
-						on:click={() => {
-							// TODO: IMPLEMENT
-							alert("Issue activity credential");
-						}}>Issue Trade Activity Credential</button
-					>
-				{:else if !uniswapVCStatusMap[currentAddress].live && uniswapVCStatusMap[currentAddress].status.activity.qualified}
-					<button disabled={true}>Create Trade Activity Credential</button>
-					<p style="color:white">
-						Cannot create new credential with disconnected wallet
-					</p>
-					<!-- TODO: Add qualifications check here -->
-				{:else if uniswapVCStatusMap[currentAddress].status.activity.qualified}
-					<button
-						on:click={() => {
-							// TODO: IMPLEMENT
-							alert("Query Uniswap API then Create activity credential");
-						}}>Create Trade Activity Credential</button
-					>
-				{:else if uniswapVCStatusMap[currentAddress].status.activity.qualified_err}
-					<p style="color:white;">
-						Does not qualify for trade activity: {uniswapVCStatusMap[
-							currentAddress
-						].status.activity.qualified_err}
-					</p>
-				{/if}
+				<QualifiedCredentialButton
+					credentialKey="activity"
+					credentialTitle="Trade Activity"
+					statusEntry={uniswapVCStatusMap[currentAddress]}
+					issueFunc={() => {
+						alert("Implement Activity Issue Func");
+					}}
+					createFunc={() => {
+						alert("Implement Activity Create Func");
+					}}
+				/>
 
-				{#if uniswapVCStatusMap[currentAddress].status.liquidity.cached}
-					<button
-						on:click={() => {
-							// TODO: IMPLEMENT
-							alert("Issue liquidity credential");
-						}}>Issue LP Credential</button
-					>
-				{:else if !uniswapVCStatusMap[currentAddress].live && uniswapVCStatusMap[currentAddress].status.liquidity.qualified}
-					<button disabled>Create LP Credential</button>
-					<p style="color:white">
-						Cannot create new credential with disconnected wallet
-					</p>
-					<!-- TODO: Add qualifications check here -->
-				{:else if uniswapVCStatusMap[currentAddress].status.liquidity.qualified}
-					<button
-						on:click={() => {
-							// TODO: IMPLEMENT
-							alert("Query Uniswap API then Create liquidity credential");
-						}}>Create LP Credential</button
-					>
-				{:else if uniswapVCStatusMap[currentAddress].status.liquidity.qualified_err}
-					<p style="color:white;">
-						Does not qualify for LP activity: {uniswapVCStatusMap[
-							currentAddress
-						].status.liquidity.qualified_err}
-					</p>
-				{/if}
+				<QualifiedCredentialButton
+					credentialKey="liquidity"
+					credentialTitle="LP"
+					statusEntry={uniswapVCStatusMap[currentAddress]}
+					issueFunc={() => {
+						alert("Implement LP Issue Func");
+					}}
+					createFunc={() => {
+						alert("Implement LP Create Func");
+					}}
+				/>
 
-				{#if uniswapVCStatusMap[currentAddress].status.sybil.cached}
-					<button
-						on:click={() => {
-							// TODO: IMPLEMENT
-							alert("Issue sybil credential");
-						}}>Issue Sybil Credential</button
-					>
-				{:else if !uniswapVCStatusMap[currentAddress].live && uniswapVCStatusMap[currentAddress].status.sybil.qualified}
-					<button disabled>Create Trade Sybil Credential</button>
-					<p style="color:white">
-						Cannot create new credential with disconnected wallet
-					</p>
-				{:else if uniswapVCStatusMap[currentAddress].status.sybil.qualified}
-					<button
-						on:click={() => {
-							// TODO: IMPLEMENT
-							issueSybilVC(currentAddress);
-						}}>Create Trade Sybil Credential</button
-					>
-				{:else if uniswapVCStatusMap[currentAddress].status.sybil.qualified_err}
-					<p style="color:white;">
-						Does not qualify for LP activity: {uniswapVCStatusMap[
-							currentAddress
-						].status.sybil.qualified_err}
-					</p>
-				{/if}
+				<QualifiedCredentialButton
+					credentialKey="sybil"
+					credentialTitle="Sybil"
+					statusEntry={uniswapVCStatusMap[currentAddress]}
+					issueFunc={() => {
+						alert("Implement Sybil Issue Func");
+					}}
+					createFunc={() => {
+						alert("Implement Sybil Create Func");
+					}}
+				/>
 			</div>
 		{/if}
 	{/if}
