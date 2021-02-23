@@ -1,5 +1,8 @@
 <script>
-	import ControllerLayout from './../components/ControllerLayout.svelte';
+	import BaseLayout from "../components/BaseLayout.svelte";
+	import SecondaryButton from "../components/SecondaryButton.svelte";
 </script>
 
-<ControllerLayout title="Ethereum Address Controller" icon="/ethereum.svg" />
+<BaseLayout title="Ethereum Address Controller" icon="/ethereum.svg">
+	<SecondaryButton label="Connect Wallet" />
+</BaseLayout>
