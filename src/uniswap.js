@@ -208,25 +208,16 @@ const isValidSybilEntry = (entry) => {
 	cred: JSON Value, // the specific details for a property in the credentialSubject
 	credKey: string, // the key at which cred is found in the credentialSubject
 	credType: string, // the type to be used in the VC type array.
-	credSubjectContext: string | false, // the context to be used in the Credential Subject @context
 	credVCContext: string | false, // the context to be used in the VC @context.
 	credVCID: string | false, // the id of the VC.
 }
 */
 export const makeEthVC = (wallet, credOpts, proof) => {
-	let { cred, credKey, credType, credVCContext, credSubjectContext, credVCID } = credOpts;
+	let { cred, credKey, credType, credVCContext,  credVCID } = credOpts;
 
 	let credentialSubject = {
 		"@context": ["https://w3id.org/did/v1"],
 		id: `did:ethr:${wallet}`,
-		publicKey: [
-			{
-				id: `did:ethr:${wallet}#owner`,
-				type: "Secp256k1VerificationKey2018",
-				owner: `did:ethr:${wallet}`,
-				ethereumAddress: wallet,
-			},
-		],
 		authentication: [
 			{
 				type: "Secp256k1SignatureAuthentication2018",
@@ -236,9 +227,6 @@ export const makeEthVC = (wallet, credOpts, proof) => {
 	};
 
 	credentialSubject[credKey] = cred;
-	if (credSubjectContext) {
-		credentialSubject["@context"].push(credSubjectContext);
-	}
 
 	let vc = {
 		"@context": [
@@ -267,7 +255,6 @@ export const makeUniswapSybilVC = (wallet, cred, proof) => {
 		credKey: "sybil",
 		credType: "UniswapSybilCredential",
 		// TODO: Define the below:
-		credSubjectContext: false,
 		credVCContext: false,
 		credVCID: false
 	};
@@ -280,7 +267,6 @@ export const makeUniswapTradeActivityVC = (wallet, cred, proof) => {
 		credKey: "activity",
 		credType: "UniswapTradeActivityCredential",
 		// TODO: Define the below:
-		credSubjectContext: false,
 		credVCContext: false,
 		credVCID: false
 	};
@@ -293,7 +279,6 @@ export const makeUniswapLiquidityVC = (wallet, cred, proof) => {
 		credKey: "liquidity",
 		credType: "UniswapLiquidityCredential",
 		// TODO: Define the below:
-		credSubjectContext: false,
 		credVCContext: false,
 		credVCID: false
 	};

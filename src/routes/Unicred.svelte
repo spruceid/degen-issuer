@@ -484,6 +484,8 @@
 				},
 			},
 
+			// Two real eth addresses, the first qualifies for Sybil, the second for Activity.
+
 			"0x8d07D225a769b7Af3A923481E1FdF49180e6A265": {
 				live: true,
 				loading: false,
