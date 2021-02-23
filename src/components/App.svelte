@@ -32,7 +32,7 @@
 </svelte:head>
 
 <main
-    class="flex h-full w-full"
+    class="flex h-full w-full justify-center"
     style="background: linear-gradient(158.67deg, #020736 30.84%, #300E92 103.49%)"
 >
     <svelte:component this={Route} {params} />
