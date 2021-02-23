@@ -299,8 +299,6 @@
 	};
 
 	const cacheSybilVC = async (wallet) => {
-		console.log(uniswapVCStatusMap);
-		console.log(wallet);
 		let sybilEntry = uniswapVCStatusMap[wallet]?.status?.sybil?.qualified_proof;
 		if (!sybilEntry) {
 			errorMessage = "Error creating Sybil Credential";
@@ -524,7 +522,6 @@
 		};
 
 		uniswapVCStatusMap = dummyCache;
-		console.log(uniswapVCStatusMap);
 	};
 </script>
 
@@ -540,7 +537,6 @@
 		<p style="color:red">Debug Mock Data</p>
 		<button
 			on:click={() => {
-				console.log("IN ON CLICK");
 				debugUIData();
 			}}>Start Debug</button
 		>
@@ -551,7 +547,6 @@
 		<select
 			bind:value={currentAddress}
 			on:change={() => {
-				console.log("Look up qualifications here");
 				checkQualifications(currentAddress);
 			}}
 			name="currentAddress"

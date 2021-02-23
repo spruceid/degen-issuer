@@ -131,7 +131,6 @@ const sendActivityQuery = async (wallet, daysBack) => {
 		}
 
 		let result = await request(uniswapAPIEndpoint, uniswapQuery, queryArgs);
-		console.log("HERE I");
 		return [true, result];
 	} catch (_err) {
 		let errMsg = "Failed to reach uniswap API";
