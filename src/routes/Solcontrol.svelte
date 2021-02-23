@@ -1,5 +1,8 @@
 <script>
-	import ControllerLayout from './../components/ControllerLayout.svelte';
+	import BaseLayout from "../components/BaseLayout.svelte";
+	import SecondaryButton from "../components/SecondaryButton.svelte";
 </script>
 
-<ControllerLayout title="Solana Address Controller" icon="/solana.svg" />
+<BaseLayout title="Solana Address Controller" icon="/solana.svg">
+	<SecondaryButton label="Connect Wallet" />
+</BaseLayout>

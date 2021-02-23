@@ -1,14 +1,11 @@
 <script>
-	import Button from './../components/Button.svelte';
-    import RouteLayout from './../components/RouteLayout.svelte';
+    import BaseLayout from "../components/BaseLayout.svelte";
+    import Input from "../components/Input.svelte";
+    import SecondaryButton from "../components/SecondaryButton.svelte";
 </script>
 
-<RouteLayout>
-    <h2>Serum Credentials</h2>
-    <a href="/"><button>Back</button></a>
-    <div class="btn-group">
-        <input />
-        <Button label="Issue 30-Day History" />
-        <Button label="Issue LP History" />
-    </div>
-</RouteLayout>
+<BaseLayout title="Serum Credentials" icon="/serum.svg">
+    <Input />
+    <SecondaryButton label="Issue 30-Day History" />
+    <SecondaryButton label="Issue LP History" />
+</BaseLayout>
