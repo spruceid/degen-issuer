@@ -149,28 +149,20 @@ export const createSybilVC = async (wallet, signingFn) => {
 	try {
 		let [success, entry] = await sybilVerifyRequest(wallet);
 		if (!success) {
-			return [false, entry];
+          throw entry;
 		}
+		let jws = await signingFn(JSON.stringify(entry));
+		let proof = makeEthProof(wallet, jws);
+		let vc = makeSybilCredential(wallet, entry, proof);
+		return [true, vc];
 	} catch (err) {
 		let errorMsg = `Failed to verify wallet: ${err}`;
 		return [false, errorMsg];
 	}
-
-	let jws;
-	jws = await signingFn(JSON.stringify(entry));
-	if (!success) {
-		return [false, jws];
-	}
-
-	let proof = makeSybilProof(wallet, jws);
-
-	let vc = makeSybilCredential(wallet, entry, proof);
-
-	return [true, vc];
 };
 
 // TODO: Verify format
-const makeSybilProof = (wallet, jws) => {
+export const makeEthProof = (wallet, jws) => {
 	return {
 		type: "Secp256k1SignatureAuthentication2018",
 		// TODO: Fmt?
@@ -232,8 +224,9 @@ const isValidSybilEntry = (entry) => {
 	return hasTimestamp && hasTweetID && hasHandle;
 };
 
-const makeSybilCredential = (wallet, cred, proof) => {
+export const makeSybilCredential = (wallet, cred, proof) => {
 	let credentialSubject = {
+		// TODO: Add specific context?
 		"@context": "https://w3id.org/did/v1",
 		id: `did:ethr:${wallet}`,
 		publicKey: [

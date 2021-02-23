@@ -7,6 +7,8 @@
 		createSybilVC,
 		getQualifications,
 		sybilVerifyRequest,
+		makeEthProof,
+		makeSybilCredential,
 	} from "../uniswap";
 
 	import QualifiedCredentialButton from "../components/QualifiedCredentialButton.svelte";
@@ -214,6 +216,9 @@
 	};
 
 	// VC interactions
+
+	// TODO: Handle getting trade history seperate from testing for qualifications.
+	// A more modular approach to Qualifications would probably make this clearer.
 	const checkQualifications = async (wallet) => {
 		let entry = uniswapVCStatusMap[wallet];
 		if (!entry) {
@@ -244,7 +249,11 @@
 		let needsLiquidity =
 			!entry.status.liquidity.cached && !entry.status.liquidity.qualified_check;
 
-		if (needsActiveTrades || needsLiquidity) {
+		if (
+			needsActiveTrades ||
+			needsLiquidity ||
+			!uniswapTradeHistoryMap[wallet]
+		) {
 			let daysBack = 30,
 				minTrades = 5,
 				minEth = 1;
@@ -262,18 +271,23 @@
 			if (success) {
 				let { activity, liquidity, transactions } = result;
 
-				uniswapTradeHistoryMap[wallet] = result;
+				uniswapTradeHistoryMap[wallet] = transactions;
 
-				entry.status.activity.qualified = activity.qualified;
-				entry.status.activity.qualified_proof = activity.qualified_proof;
-				entry.status.activity.qualified_err = activity.qualified_err;
-
-				entry.status.liquidity.qualified = liquidity.qualified;
-				entry.status.liquidity.qualified_proof = liquidity.qualified_proof;
-				entry.status.liquidity.qualified_err = liquidity.qualified_err;
+				// Update the state w/ new values
+				if (needsActiveTrades) {
+					Object.assign(entry.status.activity, activity);
+				}
+				if (needsLiquidity) {
+					Object.assign(entry.status.liquidity, liquidity);
+				}
 			} else {
-				entry.status.activity.qualified_err = result;
-				entry.status.liquidity.qualified_err = result;
+				if (!needsActiveTrades) {
+					entry.status.activity.qualified_err = result;
+				}
+
+				if (!needsLiquidity) {
+					entry.status.liquidity.qualified_err = result;
+				}
 			}
 		}
 
@@ -284,40 +298,22 @@
 		uniswapVCStatusMap = uniswapVCStatusMap;
 	};
 
-	const issueSybilVC = async (wallet) => {
-		if (!wallet || typeof wallet !== "string") {
-			errorMessage = `App State Error, called without wallet`;
+	const cacheSybilVC = async (wallet) => {
+		console.log(uniswapVCStatusMap);
+		console.log(wallet);
+		let sybilEntry = uniswapVCStatusMap[wallet]?.status?.sybil?.qualified_proof;
+		if (!sybilEntry) {
+			errorMessage = "Error creating Sybil Credential";
 			return;
 		}
 
-		loading = true;
+		// TODO: Actually make into JWS before making proof.
+		let proof = makeEthProof(sybilEntry);
+		let vc = makeSybilCredential(wallet, sybilEntry, proof);
 
-		// make signing function block and have predictable fail state.
-		const signingFn = async (data) => {
-			console.log("Here!");
-			try {
-				let result = await web3.eth.sign(data, wallet);
-				return [true, result];
-			} catch (err) {
-				console.log("Here?");
-				return [false, err];
-			}
-		};
-
-		// retrieve the Sybil list from the network, find the entry
-		// in the sybil list, hopefully.
-		let [success, vc] = await createSybilVC(wallet, signingFn);
-		if (!success) {
-			errorMessage = vc;
-			loading = false;
-			return;
-		}
-
+		// DEBUG: should be set up already.
 		if (!cachedCredentialMap[wallet]) {
-			cachedCredentialMap[wallet] = {};
-			cachedCredentialMap[wallet].uniswap = {};
-		} else if (!hasCredentials(cachedCredentialMap, wallet, "uniswap")) {
-			cachedCredentialMap[wallet].uniswap = {};
+			cachedCredentialMap[wallet] = { uniswap: {} };
 		}
 
 		cachedCredentialMap[wallet].uniswap.sybil = vc;
@@ -330,7 +326,7 @@
 
 		// force UI update
 		let tempUniswapMap = uniswapVCStatusMap;
-		tempUniswapMap[wallet].uniswap.sybil.cached = true;
+		tempUniswapMap[wallet].status.sybil.cached = true;
 		uniswapVCStatusMap = tempUniswapMap;
 		cachedCredentialMap = JSON.parse(localStorage.getItem(vcLocalStorageKey));
 	};
@@ -621,7 +617,7 @@
 						alert("Implement Sybil Issue Func");
 					}}
 					createFunc={() => {
-						alert("Implement Sybil Create Func");
+						cacheSybilVC(currentAddress);
 					}}
 				/>
 			</div>
