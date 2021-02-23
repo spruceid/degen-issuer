@@ -10,30 +10,25 @@ export const getQualifications = async (wallet, daysBack, minTrades, minEth) => 
 		return [success, result];
 	}
 
-	let hasData = result && typeof result === "object" && result.data && typeof result.data === "object";
-	if (!hasData) {
-		return [false, "Failed to reach uniswap API"];
-	}
-
-	let { data } = result;
-	let hasTransactions = data.transactions && Array.isArray(data.transactions);
+	let hasTransactions = result.transactions && Array.isArray(result.transactions);
 	if (!hasTransactions) {
 		return [false, "Failed to reach uniswap API"];
 	}
 
-
-	let { transactions } = data;
+	let { transactions } = result;
 	let qualifiedTrades = [];
 	let qualifiedLP = false;
 
 	let lpResult = {
 		qualified: false,
-		qualified_proof: false
+		qualified_proof: false,
+		qualified_err: "No qualifying Liquidity Event"
 	};
 
 	let tradeEventsResult = {
 		qualified: false,
-		qualified_proof: false
+		qualified_proof: false,
+		qualified_err: "Not enough qualifying Transaction Events"
 	};
 
 	// !NOTE:
@@ -45,6 +40,7 @@ export const getQualifications = async (wallet, daysBack, minTrades, minEth) => 
 
 			lpResult.qualified = true;
 			lpResult.qualified_proof = qualifiedLP;
+			lpResult.qualified_err = "";
 		}
 
 		if (qualifiedTrades.length < minTrades && isQualifyingTradeEvent(transaction)) {
@@ -52,6 +48,7 @@ export const getQualifications = async (wallet, daysBack, minTrades, minEth) => 
 			if (qualifiedTrades.length >= minTrades) {
 				tradeEventsResult.qualified = true;
 				tradeEventsResult.qualified_proof = qualifiedTrades;
+				tradeEventsResult.qualified_err = "";
 			}
 		}
 
@@ -63,6 +60,7 @@ export const getQualifications = async (wallet, daysBack, minTrades, minEth) => 
 	let outcome = {
 		liquidity: lpResult,
 		activity: tradeEventsResult,
+		transactions: transactions,
 	};
 
 	return [true, outcome];
@@ -133,6 +131,7 @@ const sendActivityQuery = async (wallet, daysBack) => {
 		}
 
 		let result = await request(uniswapAPIEndpoint, uniswapQuery, queryArgs);
+		console.log("HERE I");
 		return [true, result];
 	} catch (_err) {
 		let errMsg = "Failed to reach uniswap API";
@@ -158,7 +157,7 @@ export const createSybilVC = async (wallet, signingFn) => {
 	}
 
 	let jws;
-	[success, jws] = await signingFn(JSON.stringify(entry));
+	jws = await signingFn(JSON.stringify(entry));
 	if (!success) {
 		return [false, jws];
 	}
