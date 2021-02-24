@@ -4,25 +4,35 @@
 	import loadDIDKit from '../DIDKit.js';
 	import getEthereum from '../ethereum.js';
 	import { v4 as uuid } from 'uuid';
+	import * as polyfill from 'credential-handler-polyfill';
 
 	export let params;
 	$: accountId = params.accountId;
 	let errorMessage;
-	let statusMessage = "";
+	let statusMessage = "Loading...";
 	let verifiableCredential;
-	let DIDKit, ethereum;
+	$: credentialUrl = createJsonBlobUrl(verifiableCredential)
+	let DIDKit;
+	let ethereum;
 	let credentialString;
 	let signature;
 	let preparation;
+
+	const createJsonBlobUrl = object => {
+		const blob = new Blob([JSON.stringify(object, null, 2)]);
+		return URL.createObjectURL(blob, {type: 'application/json'});
+	}
 
 	const toHex = value => ('0' + value.toString(16)).substr(-2)
 
 	// TODO: request DID from user
 
-	Promise.all([getEthereum(), loadDIDKit()])
-		.then(([_ethereum, _DIDKit]) => {
-			ethereum = _ethereum;
-			DIDKit = _DIDKit;
+	Promise.all([
+		(async () => DIDKit = await loadDIDKit())(),
+		(async () => ethereum = await getEthereum())(),
+		polyfill.loadOnce()
+	])
+		.then(() => {
 			console.log('DIDKit version:', DIDKit.getVersion())
 			const subject = "did:tz:"; // TODO
 			const did = 'did:ethr:' + accountId;
@@ -36,7 +46,7 @@
 				id: "urn:uuid:" + uuid(),
 				issuer: did,
 				issuanceDate: new Date().toISOString(),
-				type: "VerifiableCredential",
+				type: ["VerifiableCredential"],
 				credentialSubject: {
 					id: subject,
 					sameAs: did
@@ -85,6 +95,28 @@
 			console.error(err);
 			errorMessage = err.message;
 		})
+
+	async function storeCredential(e) {
+		e.preventDefault();
+		errorMessage = "";
+		statusMessage = "Storing credential…";
+		try {
+			// Wrap VC in a unsigned VP for CHAPI
+			const vp = {
+				"@context": ["https://www.w3.org/2018/credentials/v1"],
+				type: "VerifiablePresentation",
+				verifiableCredential
+			};
+			const webCredential = new WebCredential("VerifiablePresentation", vp);
+			const storeResult = await navigator.credentials.store(webCredential);
+			if (!storeResult) throw new Error("Unable to store credential");
+			statusMessage = JSON.stringify(storeResult);
+		} catch(err) {
+			statusMessage = "";
+			console.error(err);
+			errorMessage = err.message;
+		}
+	}
 </script>
 
 <style>
@@ -96,11 +128,11 @@
 	.error-container {
 		color: red;
 	}
-	.verifiable-credential {
-		text-align: left;
-		white-space: pre-wrap;
-		word-wrap: break-word;
-		max-width: 68ex;
+	a {
+		text-decoration: underline;
+	}
+	p {
+		margin: 1em 0;
 	}
 </style>
 
@@ -115,8 +147,12 @@
 	<p>{statusMessage}</p>
 	{/if}
 	{#if verifiableCredential}
-		<div>Here is your verifiable credential:</div>
-	<pre class="verifiable-credential">{JSON.stringify(verifiableCredential, 0, 2)}</pre>
+		<p>Your credential is ready.</p>
+		<div><a href="" on:click={storeCredential}>Store credential in CHAPI wallet</a></div>
+		{#if credentialUrl}
+			<div>or</div>
+			<div><a href={credentialUrl}>Download credential</a></div>
+		{/if}
 	{/if}
 	<p><a href="/Ethcontrol/pick">Back</a></p>
 	</div>
