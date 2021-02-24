@@ -547,6 +547,7 @@
 	};
 </script>
 
+<<<<<<< HEAD
 <h2>Uniswap Credentials</h2>
 <main>
 	{#if errorMessage}
@@ -555,6 +556,10 @@
 		</div>
 	{/if}
 	<!-- TODO: REMOVE THIS AS DEBUG  -->
+=======
+<BaseLayout title="Uniswap Credentials" icon="/uniswap.svg">
+	<!-- TODO: REMOVE THIS AS DEBUG 
+>>>>>>> update to use much better ui
 	<div>
 		<p style="color:red">Debug Mock Data</p>
 		<button
@@ -562,48 +567,33 @@
 				debugUIData();
 			}}>Start Debug</button
 		>
-	</div>
-	<!-- TODO: On blur, test for qualifications. -->
-	<div>
-		<label for="currentAddress">Choose An Address</label>
-		<select
-			bind:value={currentAddress}
-			on:change={() => {
-				checkQualifications(currentAddress);
-			}}
-			name="currentAddress"
-		>
-			<option value="">No Address Selected</option>
-			{#each Object.keys(uniswapVCStatusMap) as wallet}
-				{#if uniswapVCStatusMap[wallet].live}
-					<option value={wallet}>{wallet}</option>
-				{:else}
-					<option value={wallet}>{wallet} (Not Connected)</option>
-				{/if}
-			{/each}
-		</select>
-	</div>
+	</div >
+	-->
+
+	{#if errorMessage}
+		<p style="color:red">{errorMessage}</p>
+	{/if}
+	<label for="currentAddress">Choose An Address</label>
+	<select
+		bind:value={currentAddress}
+		on:change={() => {
+			checkQualifications(currentAddress);
+		}}
+		name="currentAddress"
+	>
+		<option value="">No Address Selected</option>
+		{#each Object.keys(uniswapVCStatusMap) as wallet}
+			{#if uniswapVCStatusMap[wallet].live}
+				<option value={wallet}>{wallet}</option>
+			{:else}
+				<option value={wallet}>{wallet} (Not Connected)</option>
+			{/if}
+		{/each}
+	</select>
 	{#if currentAddress}
 		{#if loading || uniswapVCStatusMap[currentAddress].loading}
 			<p style="color:white">Updating...</p>
 		{:else}
-			<!-- TODO ITER OVER STATUS TO CHANGE BUTTON STATE.-->
-			<div class="btn-group">
-			  <!-- TODO: Restore if history display is desire/implemented
-				<button
-					on:click={() => {
-						// TODO: IMPLEMENT
-						alert("Turn into Link");
-					}}>Show 30-Day Trade History</button
-				>
-				<button
-					on:click={() => {
-						// TODO: IMPLEMENT
-						alert("Turn into Link");
-					}}>Show 30-Day LP History</button
-				>
-				-->
-
 				<QualifiedCredentialButton
 					credentialKey="activity"
 					credentialTitle="Trade Activity"
@@ -639,9 +629,9 @@
 						cacheVC(currentAddress, "sybil");
 					}}
 				/>
-			</div>
 		{/if}
 	{/if}
+<<<<<<< HEAD
 
     <BaseLayout title="Uniswap Credentials" icon="/uniswap.svg">
         <Input />
@@ -656,3 +646,6 @@
         <SecondaryButton label="Issue LP History" />
     </BaseLayout>
 </main>
+=======
+</BaseLayout>
+>>>>>>> update to use much better ui
