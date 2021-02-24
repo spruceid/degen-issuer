@@ -1,5 +1,6 @@
 <script>
 	// import { onMount } from "svelte";
+	import SecondaryButton from "./SecondaryButton.svelte";
 
 	// The key that the credential's base is stored at in the statusEntry
 	export let credentialKey;
@@ -15,19 +16,23 @@
 </script>
 
 {#if statusEntry.status[credentialKey].cached}
-	<button on:click={issueFunc}>Issue {credentialTitle} Credential</button>
+	<SecondaryButton
+		onClick={issueFunc}
+		label={`Issue ${credentialTitle} Credential`}
+	/>
 {:else if !statusEntry.live && statusEntry.status[credentialKey].qualified}
-	<button disabled={true}>Create {credentialTitle} Credential</button>
-	<p style="color:white">
-		Cannot create new credential with disconnected wallet
-	</p>
-	<!-- TODO: Add qualifications check here -->
+	<SecondaryButton 
+		disabled={true}
+		label={`Connect to create ${credentialTitle} Credential`}
+	/>
 {:else if statusEntry.status[credentialKey].qualified}
-	<button on:click={createFunc}>Create {credentialTitle} Credential</button>
+	<SecondaryButton 
+		onClick={createFunc}
+		label={`Create ${credentialTitle} Credential`}
+	/>
 {:else if statusEntry.status[credentialKey].qualified_err}
-	<p style="color:white;">
-		Does not qualify for {credentialTitle} Credential: {statusEntry.status[
-			credentialKey
-		].qualified_err}
-	</p>
+	<SecondaryButton 
+		disabled={true}
+		label={`Does not qualify for ${credentialTitle} Credential`}
+	/>
 {/if}
