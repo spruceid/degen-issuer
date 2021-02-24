@@ -2,6 +2,8 @@
     import Navaid from "navaid";
     import { onDestroy } from "svelte";
     import Ethcontrol from "../routes/Ethcontrol.svelte";
+    import EthcontrolPick from "../routes/EthcontrolPick.svelte";
+    import EthcontrolIssue from "../routes/EthcontrolIssue.svelte";
     import Solcontrol from "../routes/Solcontrol.svelte";
     import Unicred from "../routes/Unicred.svelte";
     import Srmcred from "../routes/Srmcred.svelte";
@@ -15,7 +17,12 @@
 
     const router = Navaid("/")
         .on("/", () => (Route = Home))
-        .on("/Ethcontrol", () => (Route = Ethcontrol))
+        .on("/Ethcontrol", () => Route = Ethcontrol)
+        .on("/Ethcontrol/pick", () => Route = EthcontrolPick)
+        .on("/Ethcontrol/issue/:accountId", _params => {
+            params = _params;
+            Route = EthcontrolIssue;
+        })
         .on("/Solcontrol", () => (Route = Solcontrol))
         .on("/Unicred", () => (Route = Unicred))
         .on("/Srmcred", () => (Route = Srmcred))

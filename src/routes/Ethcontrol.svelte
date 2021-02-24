@@ -4,5 +4,5 @@
 </script>
 
 <BaseLayout title="Ethereum Address Controller" icon="/ethereum.svg">
-	<SecondaryButton label="Connect Wallet" />
+	<SecondaryButton label="Connect Wallet" href="/Ethcontrol/pick" />
 </BaseLayout>
