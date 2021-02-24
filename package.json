@@ -12,7 +12,8 @@
     "navaid": "^1.0.2",
     "postcss": "^8.2.6",
     "svelte-preprocess": "^4.6.9",
-    "tailwindcss": "^2.0.3"
+    "tailwindcss": "^2.0.3",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^17.0.0",
