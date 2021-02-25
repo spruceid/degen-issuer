@@ -5,6 +5,7 @@
 	import getEthereum from '../ethereum.js';
 	import { v4 as uuid } from 'uuid';
 	import * as polyfill from 'credential-handler-polyfill';
+	import {id} from "../CredentialWallet.js";
 
 	export let params;
 	$: accountId = params.accountId;
@@ -19,22 +20,23 @@
 	let preparation;
 
 	const createJsonBlobUrl = object => {
+		if (!object) return null;
 		const blob = new Blob([JSON.stringify(object, null, 2)]);
 		return URL.createObjectURL(blob, {type: 'application/json'});
 	}
 
 	const toHex = value => ('0' + value.toString(16)).substr(-2)
 
-	// TODO: request DID from user
-
-	Promise.all([
-		(async () => DIDKit = await loadDIDKit())(),
-		(async () => ethereum = await getEthereum())(),
-		polyfill.loadOnce()
-	])
+	if ($id) go()
+	function go() {
+		Promise.all([
+			(async () => DIDKit = await loadDIDKit())(),
+			(async () => ethereum = await getEthereum())(),
+			polyfill.loadOnce()
+		])
 		.then(() => {
 			console.log('DIDKit version:', DIDKit.getVersion())
-			const subject = "did:tz:"; // TODO
+			const subject = $id;
 			const did = 'did:ethr:' + accountId;
 			const credential = {
 				"@context": [
@@ -95,6 +97,7 @@
 			console.error(err);
 			errorMessage = err.message;
 		})
+	}
 
 	async function storeCredential(e) {
 		e.preventDefault();
@@ -146,13 +149,11 @@
 	{#if statusMessage}
 	<p>{statusMessage}</p>
 	{/if}
-	{#if verifiableCredential}
+	{#if credentialUrl}
 		<p>Your credential is ready.</p>
-		<div><a href="" on:click={storeCredential}>Store credential in CHAPI wallet</a></div>
-		{#if credentialUrl}
-			<div>or</div>
-			<div><a href={credentialUrl}>Download credential</a></div>
-		{/if}
+		<div><a href={credentialUrl} on:click={storeCredential}>Store credential in CHAPI wallet</a></div>
+		<div>or</div>
+		<div><a href={credentialUrl}>Download credential</a></div>
 	{/if}
 	<p><a href="/Ethcontrol/pick">Back</a></p>
 	</div>
