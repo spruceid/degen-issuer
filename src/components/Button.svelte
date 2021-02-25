@@ -1,10 +1,11 @@
 <script>
-  export let label;
-  export let icon;
-  export let href;
+  export let label = "";
+  export let icon = "";
+  export let href = "/";
+  export let onclick = () => {};
 </script>
 
-<a {href} class="max-w-sm mx-auto my-2 w-full">
+<a {href} class="max-w-sm mx-auto my-2 w-full" on:click={onclick}>
   <button
     class="bg-blue-990 text-white py-4 text-left rounded-2xl font-semibold flex items-center w-full h-18"
   >

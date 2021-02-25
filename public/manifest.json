@@ -1,0 +1,11 @@
+{ 
+  "name": "Degen Issuer",
+  "short_name": "Degen",
+  "icons": [
+    {
+      "sizes": "83x83",
+      "src": "degenpassport.png",
+      "type": "image/png"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ module.exports = {
     DIDKitLoader: "readonly",
     DIDKit: "readonly",
   },
+  sourceType: "module",
   extends: ["eslint:recommended", "prettier"],
   overrides: [
     {
@@ -19,10 +20,7 @@ module.exports = {
     },
     {
       files: ["*.ts", "*.spec.ts"],
-      extends: [
-        "prettier/@typescript-eslint",
-        "plugin:prettier/recommended",
-      ],
+      extends: ["prettier/@typescript-eslint", "plugin:prettier/recommended"],
       env: { browser: true, node: false },
       rules: { "prettier/prettier": "error" },
     },
