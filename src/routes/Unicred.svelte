@@ -95,7 +95,6 @@
 
     // Connected accounts vs...
     let liveAccounts = await getEthereumAccounts();
-    console.log(liveAccounts);
     // ...cached accounts as an array
     let cachedAccounts = Object.keys(cache);
     // to be assigned to uniswapVCStatusMap after processing
@@ -143,7 +142,7 @@
   ) => {
     let statusMapEntry = {};
 
-    for (let i = 0, n = credentialTypeList; i < n; i++) {
+    for (let i = 0, n = credentialTypeList.length; i < n; i++) {
       let credentialType = credentialTypeList[i];
       let cached = hasCredentialType(
         cache,
@@ -217,8 +216,6 @@
     // Force UI Change.
     uniswapVCStatusMap[wallet] = entry;
     uniswapVCStatusMap = uniswapVCStatusMap;
-
-    console.log(entry);
 
     if (!entry.status.sybil.cached && !entry.status.sybil.qualified_check) {
       // TODO: exchange for qualified proof here.
@@ -535,7 +532,7 @@
 </script>
 
 <BaseLayout title="Uniswap Credentials" icon="/uniswap.svg">
-  <!-- TODO: REMOVE THIS AS DEBUG 
+  <!-- TODO: REMOVE THIS AS DEBUG
 	<div>
 		<p style="color:red">Debug Mock Data</p>
 		<button
