@@ -547,19 +547,8 @@
 	};
 </script>
 
-<<<<<<< HEAD
-<h2>Uniswap Credentials</h2>
-<main>
-	{#if errorMessage}
-		<div class="error-container">
-			<p style="color:red">{errorMessage}</p>
-		</div>
-	{/if}
-	<!-- TODO: REMOVE THIS AS DEBUG  -->
-=======
 <BaseLayout title="Uniswap Credentials" icon="/uniswap.svg">
 	<!-- TODO: REMOVE THIS AS DEBUG 
->>>>>>> update to use much better ui
 	<div>
 		<p style="color:red">Debug Mock Data</p>
 		<button
@@ -632,21 +621,4 @@
 				/>
 		{/if}
 	{/if}
-<<<<<<< HEAD
-
-    <BaseLayout title="Uniswap Credentials" icon="/uniswap.svg">
-        <Input />
-        <SecondaryButton label="Issue 30-Day History" />
-        <SecondaryButton label="Issue LP History" />
-    </BaseLayout>
-	<a href="/"><button>Back</button></a>
-
-	<BaseLayout title="Uniswap Credentials" icon="/uniswap.svg">
-        <Input />
-        <SecondaryButton label="Issue 30-Day History" />
-        <SecondaryButton label="Issue LP History" />
-    </BaseLayout>
-</main>
-=======
 </BaseLayout>
->>>>>>> update to use much better ui

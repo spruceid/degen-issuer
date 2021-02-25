@@ -14,10 +14,7 @@
     "postcss": "^8.2.6",
     "svelte-preprocess": "^4.6.9",
     "tailwindcss": "^2.0.3",
-<<<<<<< HEAD
     "uuid": "^8.3.2",
-=======
->>>>>>> Finalized qualifications checks for uniswap UI, moved uniswap utils to match ethr branch
     "graphql": "^15.5.0",
     "graphql-request": "^3.4.0"
   },
