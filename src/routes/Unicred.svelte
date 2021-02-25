@@ -1,19 +1,18 @@
 <script>
   import BaseLayout from "../components/BaseLayout.svelte";
+  import { getEthereumAccounts } from "../ethereum.js";
   import {
     getQualifications,
     sybilVerifyRequest,
     makeEthProof,
     makeUniswapSybilVC,
     makeUniswapTradeActivityVC,
-    makeUniswapLiquidityVC
+    makeUniswapLiquidityVC,
   } from "../uniswap";
 
-  import QualifiedCredentialButton from "../components/QualifiedCredentialButton.svelte";
+  import { onMount } from "svelte";
 
-  // Assume top level passes a ethereum object with
-  // a provider which has one or more wallets.
-  export let ethereum;
+  import QualifiedCredentialButton from "../components/QualifiedCredentialButton.svelte";
 
   // TODO: Have lists of thresholds passed down for modular VC qualifications.
   // Adjust uniswap.js to match.
@@ -80,7 +79,7 @@
   const vcLocalStorageKey = "degenissuer_verified_credentials";
 
   // Lifecycle
-  const onLoad = async () => {
+  onMount(async () => {
     // object of cached Uniswap Sybil credentials
     let cache;
     // JSON String of cache, or null
@@ -95,7 +94,8 @@
     }
 
     // Connected accounts vs...
-    let liveAccounts = await getConnectedWallets();
+    let liveAccounts = await getEthereumAccounts();
+    console.log(liveAccounts);
     // ...cached accounts as an array
     let cachedAccounts = Object.keys(cache);
     // to be assigned to uniswapVCStatusMap after processing
@@ -108,7 +108,7 @@
 
       statusMap[wallet] = {
         live: true,
-        status: status
+        status: status,
       };
     }
 
@@ -119,19 +119,19 @@
 
         statusMap[wallet] = {
           live: false,
-          status: status
+          status: status,
         };
       }
     }
 
     // force the UI update.
-    cachedCredentialMap = cached;
+    cachedCredentialMap = cachedAccounts;
     uniswapVCStatusMap = statusMap;
 
     if (!liveAccounts.length) {
       errorMessage = "No connected Ethereum accounts currently detected";
     }
-  };
+  });
 
   // cache operations
   // Given a wallet, a category, and a list of types, returns a status map
@@ -157,7 +157,7 @@
         qualified: cached,
         qualified_check: false,
         qualified_proof: false,
-        qualified_err: ""
+        qualified_err: "",
       };
     }
 
@@ -197,20 +197,8 @@
     return createStatusMapEntry(cache, wallet, "uniswap", [
       "activity",
       "liquidity",
-      "sybil"
+      "sybil",
     ]);
-  };
-
-  // Ethereum Account Interactions
-  const getConnectedWallets = async () => {
-    try {
-      let wallets = await ethereum.request({ method: "eth_requestAccounts" });
-      return wallets;
-    } catch (err) {
-      // TODO: Handle this better?
-      console.error(err);
-      return [];
-    }
   };
 
   // VC interactions
@@ -229,6 +217,8 @@
     // Force UI Change.
     uniswapVCStatusMap[wallet] = entry;
     uniswapVCStatusMap = uniswapVCStatusMap;
+
+    console.log(entry);
 
     if (!entry.status.sybil.cached && !entry.status.sybil.qualified_check) {
       // TODO: exchange for qualified proof here.
@@ -360,19 +350,19 @@
           activity: {
             cached: true,
             qualified: true,
-            qualified_check: false
+            qualified_check: false,
           },
           liquidity: {
             cached: true,
             qualified: true,
-            qualified_check: false
+            qualified_check: false,
           },
           sybil: {
             cached: true,
             qualified: true,
-            qualified_check: false
-          }
-        }
+            qualified_check: false,
+          },
+        },
       },
       live_none_verified: {
         live: true,
@@ -381,19 +371,19 @@
           activity: {
             cached: false,
             qualified: true,
-            qualified_check: false
+            qualified_check: false,
           },
           liquidity: {
             cached: false,
             qualified: true,
-            qualified_check: false
+            qualified_check: false,
           },
           sybil: {
             cached: false,
             qualified: true,
-            qualified_check: false
-          }
-        }
+            qualified_check: false,
+          },
+        },
       },
       live_random: {
         live: true,
@@ -402,19 +392,19 @@
           activity: {
             cached: rActive,
             qualified: true,
-            qualified_check: false
+            qualified_check: false,
           },
           liquidity: {
             cached: rLiquid,
             qualified: true,
-            qualified_check: false
+            qualified_check: false,
           },
           sybil: {
             cached: rSybil,
             qualified: true,
-            qualified_check: false
-          }
-        }
+            qualified_check: false,
+          },
+        },
       },
       cached_all_verified: {
         live: false,
@@ -423,19 +413,19 @@
           activity: {
             cached: true,
             qualified: true,
-            qualified_check: false
+            qualified_check: false,
           },
           liquidity: {
             cached: true,
             qualified: true,
-            qualified_check: false
+            qualified_check: false,
           },
           sybil: {
             cached: true,
             qualified: true,
-            qualified_check: false
-          }
-        }
+            qualified_check: false,
+          },
+        },
       },
       cached_none_verified: {
         live: false,
@@ -444,19 +434,19 @@
           activity: {
             cached: false,
             qualified: true,
-            qualified_check: false
+            qualified_check: false,
           },
           liquidity: {
             cached: false,
             qualified: true,
-            qualified_check: false
+            qualified_check: false,
           },
           sybil: {
             cached: false,
             qualified: true,
-            qualified_check: false
-          }
-        }
+            qualified_check: false,
+          },
+        },
       },
 
       cached_random: {
@@ -466,19 +456,19 @@
           activity: {
             cached: rActive,
             qualified: true,
-            qualified_check: false
+            qualified_check: false,
           },
           liquidity: {
             cached: rLiquid,
             qualified: true,
-            qualified_check: false
+            qualified_check: false,
           },
           sybil: {
             cached: rSybil,
             qualified: true,
-            qualified_check: false
-          }
-        }
+            qualified_check: false,
+          },
+        },
       },
 
       // Two real eth addresses, the first qualifies for Sybil, the second for Activity.
@@ -492,23 +482,23 @@
             qualified: false,
             qualified_check: false,
             qualified_proof: false,
-            qualified_err: ""
+            qualified_err: "",
           },
           liquidity: {
             cached: false,
             qualified: false,
             qualified_check: false,
             qualified_proof: false,
-            qualified_err: ""
+            qualified_err: "",
           },
           sybil: {
             cached: false,
             qualified: false,
             qualified_check: false,
             qualified_proof: false,
-            qualified_err: ""
-          }
-        }
+            qualified_err: "",
+          },
+        },
       },
 
       "0x0000000000000eb4ec62758aae93400b3e5f7f18": {
@@ -520,24 +510,24 @@
             qualified: false,
             qualified_check: false,
             qualified_proof: false,
-            qualified_err: ""
+            qualified_err: "",
           },
           liquidity: {
             cached: false,
             qualified: false,
             qualified_check: false,
             qualified_proof: false,
-            qualified_err: ""
+            qualified_err: "",
           },
           sybil: {
             cached: false,
             qualified: false,
             qualified_check: false,
             qualified_proof: false,
-            qualified_err: ""
-          }
-        }
-      }
+            qualified_err: "",
+          },
+        },
+      },
     };
 
     uniswapVCStatusMap = dummyCache;
@@ -559,7 +549,9 @@
   {#if errorMessage}
     <p style="color:red">{errorMessage}</p>
   {/if}
-  <label for="currentAddress">Choose An Address</label>
+  <label for="currentAddress" class="mx-auto text-white mb-2"
+    >Choose An Address</label
+  >
   <!-- svelte-ignore a11y-no-onchange -->
   <select
     class="text-white p-4 text-left rounded-2xl max-w-sm mx-auto flex items-center h-16 w-full bg-blue-998 border-2 border-blue-997 mb-6"
@@ -567,6 +559,7 @@
     on:change={() => {
       checkQualifications(currentAddress);
     }}
+    id="currentAddress"
     name="currentAddress"
   >
     <option value="">No Address Selected</option>
