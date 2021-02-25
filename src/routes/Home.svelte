@@ -1,6 +1,7 @@
 <script>
 	import RouteLayout from "../components/RouteLayout.svelte";
-import Button from "./../components/Button.svelte";
+	import Button from "./../components/Button.svelte";
+	import {id} from "../CredentialWallet.js";
 </script>
 
 <RouteLayout>
@@ -12,20 +13,29 @@ import Button from "./../components/Button.svelte";
 			Degen Passport
 		</h1>
 		<Button
+			href="/Credwallet"
+			label="Connect Credential Wallet"
+		/>
+		<Button
 			href="/Ethcontrol"
 			label="Ethereum Address Controller"
-			icon="/ethereum.svg"
+			disabled={!$id}
 		/>
 		<Button
 			href="/Solcontrol"
 			label="Solana Address Controller"
-			icon="/solana.svg"
+			disabled={!$id}
 		/>
 		<Button
 			href="/Unicred"
 			label="Uniswap Credentials"
 			icon="/uniswap.svg"
+			disabled={!$id}
 		/>
-		<Button href="/Srmcred" label="Serum Credentials" icon="/serum.svg" />
+		<Button
+			href="/Srmcred"
+			label="Serum Credentials"
+			disabled={!$id}
+		/>
 	</div>
 </RouteLayout>

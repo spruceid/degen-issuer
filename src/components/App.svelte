@@ -8,6 +8,7 @@
     import Unicred from "../routes/Unicred.svelte";
     import Srmcred from "../routes/Srmcred.svelte";
     import Home from "../routes/Home.svelte";
+    import Credwallet from "../routes/Credwallet.svelte";
 
     let Route,
         params = {},
@@ -26,6 +27,7 @@
         .on("/Solcontrol", () => (Route = Solcontrol))
         .on("/Unicred", () => (Route = Unicred))
         .on("/Srmcred", () => (Route = Srmcred))
+        .on("/Credwallet", () => (Route = Credwallet))
         .listen();
 
     onDestroy(router.unlisten);
