@@ -3,11 +3,9 @@ import commonjs from '@rollup/plugin-commonjs';
 import json from '@rollup/plugin-json';
 import resolve from '@rollup/plugin-node-resolve';
 import livereload from 'rollup-plugin-livereload';
-import nodeGlobals from 'rollup-plugin-node-globals';
 import { terser } from 'rollup-plugin-terser';
 import css from 'rollup-plugin-css-only';
 import sveltePreprocess from 'svelte-preprocess';
-import builtins from 'rollup-plugin-node-builtins';
 import replace from '@rollup/plugin-replace';
 
 const production = !process.env.ROLLUP_WATCH;
@@ -77,8 +75,6 @@ export default {
 
 		// required by crypto packages
 		json(),
-		// nodeGlobals(),
-		builtins(),
 		replace({ 'process.env.NODE_ENV': JSON.stringify('production') }),
 
 		// In dev mode, call `npm run start` once
