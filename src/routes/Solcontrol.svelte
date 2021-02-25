@@ -19,7 +19,11 @@
 		solanaWallet.set(w);
 
 		wallet.on("connect", (pubKey) => {
+			console.log("!!!");
+			console.log(pubKey);
 			solanaLiveAddress.set(pubKey);
+			console.log("!!!");
+			console.log($solanaLiveAddress);
 		});
 
 		wallet.on("disconnect", () => {

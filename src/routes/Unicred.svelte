@@ -548,7 +548,7 @@
 </script>
 
 <BaseLayout title="Uniswap Credentials" icon="/uniswap.svg">
-	<!-- TODO: REMOVE THIS AS DEBUG 
+	<!-- TODO: REMOVE THIS AS DEBUG
 	<div>
 		<p style="color:red">Debug Mock Data</p>
 		<button
@@ -556,8 +556,7 @@
 				debugUIData();
 			}}>Start Debug</button
 		>
-	</div >
-	-->
+	</div >-->
 
 	{#if errorMessage}
 		<p style="color:red">{errorMessage}</p>

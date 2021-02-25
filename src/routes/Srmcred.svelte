@@ -35,6 +35,8 @@
     */
 	$: serumVCStatusMap = {};
 
+	const solanaApiUrl = "https://api.mainnet-beta.solana.com";
+
 	// TODO: use this to sign.
 	let wallet = false;
 	solanaWallet.subscribe((w) => {
@@ -53,23 +55,54 @@
 		return s;
 	};
 
-	const getQualifications = (addr, daysBack, minTrads, minSol) => {
-		// return [false, "Unimplimented"];
+	const getQualifications = async (addr, daysBack, minTrads, minSol) => {
+		let activity = {
+			qualified: false,
+			qualified_proof: false,
+			qualified_err: "unimplemented",
+		};
+
+		let liquidity = {
+			qualified: false,
+			qualified_proof: false,
+			qualified_err: "unimplemented",
+		};
+
+		let activityBody = makeActivityReqBody(addr);
+		let activityRes = await fetch(solanaApiUrl, {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: activityBody,
+		});
+
+		if (activityRes.ok && activityRes.status === 200) {
+			let activityJSON = await activityRes.json();
+			console.log(activityJSON);
+		} else {
+			console.log("OH NO");
+		}
+
 		return [
 			true,
 			{
-				activity: {
-					qualified: false,
-					qualified_proof: false,
-					qualified_err: "unimplemented",
-				},
-				liquidity: {
-					qualified: false,
-					qualified_proof: false,
-					qualified_err: "unimplemented",
-				},
+				activity: activity,
+				liquidity: liquidity,
 			},
 		];
+	};
+
+	const makeActivityReqBody = (addr) => {
+		let reqBody = {
+			// TODO: gen id randomly...?
+			id: 111,
+			jsonrpc: "2.0",
+			method: "getConfirmedSignaturesForAddress2",
+			// TODO: change limit?
+			params: [addr, { limit: 25 }],
+		};
+		return JSON.stringify(reqBody);
 	};
 
 	onMount(async () => {
@@ -115,8 +148,11 @@
 				minTrades = 5,
 				minSol = 1;
 
+			console.log("LIVE ADDR:");
+			console.log($solanaLiveAddress);
+
 			let [success, outcome] = await getQualifications(
-				$solanaLiveAddress,
+				$solanaLiveAddress.toString(),
 				daysBack,
 				minTrades,
 				minSol
@@ -142,7 +178,7 @@
 		}
 
 		serumVCStatusMap = statusMap;
-		console.log(serumVCStatusMap);
+	    console.log(serumVCStatusMap);
 	});
 </script>
 
@@ -158,7 +194,7 @@
 	>
 		<option value="">No Address Selected</option>
 		{#each Object.keys(serumVCStatusMap) as addr}
-			{#if serumVCStatusMap[currentAddr]?.live}
+			{#if serumVCStatusMap[addr]?.live}
 				<option value={addr}>{addr}</option>
 			{:else}
 				<option value={addr}>{addr} (Not Connected)</option>
