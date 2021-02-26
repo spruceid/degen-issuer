@@ -11,6 +11,12 @@
 	} from "../store.js";
 	import { createStatusMapEntry } from "../qualificationStatus.js";
 
+	// TODO: Move all this to qualificationsStatus.js
+	const secondsPerDay = 86400;
+	const makeDaysBack = (daysBack) => {
+		return Math.floor(Date.now() / 1000) - daysBack * secondsPerDay;
+	};
+
 	$: errorMessage = "";
 	$: currentAddr = "";
 	/*
@@ -97,13 +103,7 @@
 		let activity = {
 			qualified: false,
 			qualified_proof: false,
-			qualified_err: "unimplemented",
-		};
-
-		let liquidity = {
-			qualified: false,
-			qualified_proof: false,
-			qualified_err: "unimplemented",
+			qualified_err: "Not enough trade activity found",
 		};
 
 		let activityBody = makeActivityReqBody(addr);
@@ -116,31 +116,66 @@
 				body: activityBody,
 			});
 
+			if (!activityRes.ok || !activityRes.status === 200) {
+				throw `bad status`;
+			}
+
+			let activityJSON = await activityRes.json();
+			if (!activityJSON.result || !Array.isArray(activityJSON.result)) {
+				throw `bad format`;
+			}
+
+			let { result } = activityJSON;
+			let thirtyDaysBack = makeDaysBack(daysBack);
 			let activityArr = [];
-			if (activityRes.ok && activityRes.status === 200) {
-				let activityJSON = await activityRes.json();
-				if (activityJSON.result && Array.isArray(activityJSON.result)) {
-					let { result } = activityJSON;
-					for (let i = 0, n = result.length; i < n; i++) {
-						let transaction = result[i];
-						if (!transaction.err) {
-							activityArr.push(transaction);
-							if (activityArr.length > minTrades) {
-								activity.qualified = true;
-								activity.qualified_proof = activityArr;
-								activity.qualified_err = "";
-								break;
-							}
-						}
+
+			for (let i = 0, n = result.length; i < n; i++) {
+				let transaction = result[i];
+				if (!transaction.err && transaction.blockTime > thirtyDaysBack) {
+					activityArr.push(transaction);
+					if (activityArr.length > minTrades) {
+						activity.qualified = true;
+						activity.qualified_proof = activityArr;
+						activity.qualified_err = "";
+						break;
 					}
-				} else {
-					activity.qualified_err = `Failed in API request, bad format`;
 				}
-			} else {
-				activity.qualified_err = `Failed in API request, bad status`;
 			}
 		} catch (err) {
 			activity.qualified_err = `Failed in API request: ${err}`;
+		}
+
+		let liquidity = {
+			qualified: false,
+			qualified_proof: false,
+			qualified_err: "No active staking event found",
+		};
+
+		let liquidityBody = makeLiquidityReqBody(addr);
+		try {
+			let liquidityRes = await fetch(solanaApiUrl, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: liquidityBody,
+			});
+			if (!liquidityRes.ok || !liquidityRes.status === 200) {
+				throw `bad status`;
+			}
+
+			let liquidityJSON = await liquidityRes.json();
+			if (!liquidityJSON?.result?.state) {
+				throw `bad format`;
+			}
+
+			if (liquidityJSON.result.state === "active") {
+				liquidity.qualified = true;
+				liquidity.qualified_proof = liquidityJSON.result;
+				liquidity.qualified_err = "";
+			}
+		} catch (err) {
+			liquidity.qualified_err = `Failed in API request: ${err}`;
 		}
 
 		return [
@@ -158,8 +193,18 @@
 			id: 111,
 			jsonrpc: "2.0",
 			method: "getConfirmedSignaturesForAddress2",
-			// TODO: change limit?
-			params: [addr, { limit: 25 }],
+			params: [addr],
+		};
+		return JSON.stringify(reqBody);
+	};
+
+	const makeLiquidityReqBody = (addr) => {
+		let reqBody = {
+			// TODO: gen id randomly...?
+			id: 111,
+			jsonrpc: "2.0",
+			method: "getStakeActivation",
+			params: [addr, { commitment: "finalized" }],
 		};
 		return JSON.stringify(reqBody);
 	};
@@ -217,7 +262,6 @@
 		}
 
 		serumVCStatusMap = statusMap;
-		console.log(serumVCStatusMap);
 	});
 </script>
 
@@ -235,8 +279,7 @@
 				// TODO: err out here.
 				return;
 			}
-			console.log("!!!");
-			console.log(entry);
+
 			if (
 				!entry.status.activity.qualified_check ||
 				!entry.status.liquidity.qualified_check
@@ -279,7 +322,7 @@
 
 			<QualifiedCredentialButton
 				credentialKey="liquidity"
-				credentialTitle="LP"
+				credentialTitle="Stake"
 				statusEntry={serumVCStatusMap[currentAddr]}
 				issueFunc={() => {
 					alert("Implement LP Issue Func");
