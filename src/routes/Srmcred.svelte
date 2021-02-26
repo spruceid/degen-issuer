@@ -93,7 +93,7 @@
 		serumVCStatusMap = serumVCStatusMap;
 	};
 
-	const getQualifications = async (addr, daysBack, minTrads, minSol) => {
+	const getQualifications = async (addr, daysBack, minTrades, minSol) => {
 		let activity = {
 			qualified: false,
 			qualified_proof: false,
@@ -107,19 +107,40 @@
 		};
 
 		let activityBody = makeActivityReqBody(addr);
-		let activityRes = await fetch(solanaApiUrl, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: activityBody,
-		});
+		try {
+			let activityRes = await fetch(solanaApiUrl, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: activityBody,
+			});
 
-		if (activityRes.ok && activityRes.status === 200) {
-			let activityJSON = await activityRes.json();
-			console.log(activityJSON);
-		} else {
-			console.log("OH NO");
+			let activityArr = [];
+			if (activityRes.ok && activityRes.status === 200) {
+				let activityJSON = await activityRes.json();
+				if (activityJSON.result && Array.isArray(activityJSON.result)) {
+					let { result } = activityJSON;
+					for (let i = 0, n = result.length; i < n; i++) {
+						let transaction = result[i];
+						if (!transaction.err) {
+							activityArr.push(transaction);
+							if (activityArr.length > minTrades) {
+								activity.qualified = true;
+								activity.qualified_proof = activityArr;
+								activity.qualified_err = "";
+								break;
+							}
+						}
+					}
+				} else {
+					activity.qualified_err = `Failed in API request, bad format`;
+				}
+			} else {
+				activity.qualified_err = `Failed in API request, bad status`;
+			}
+		} catch (err) {
+			activity.qualified_err = `Failed in API request: ${err}`;
 		}
 
 		return [
@@ -231,7 +252,9 @@
 				<option value={addr}>{addr}</option>
 			{:else}
 				<option value={addr}
-					>{addr} (Not Connected {addr === testAddr ? "test address" : ""})</option
+					>{addr} (Not Connected {addr === testAddr
+						? "test address"
+						: ""})</option
 				>
 			{/if}
 		{/each}
