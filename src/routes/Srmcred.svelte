@@ -36,6 +36,7 @@
 	$: serumVCStatusMap = {};
 
 	const solanaApiUrl = "https://api.mainnet-beta.solana.com";
+	const testAddr = "7ofyLrGAkKWef7vSgXVBvxvYhhQad32NNhuz7ubRW4hi";
 
 	// TODO: use this to sign.
 	let wallet = false;
@@ -53,6 +54,43 @@
 			"liquidity",
 		]);
 		return s;
+	};
+
+	const checkQualificaions = async (addr) => {
+		let entry = serumVCStatusMap[addr];
+
+		serumVCStatusMap[addr] = entry;
+		serumVCStatusMap = serumVCStatusMap;
+
+		let daysBack = 30,
+			minTrades = 5,
+			minSol = 1;
+
+		let [success, outcome] = await getQualifications(
+			addr,
+			daysBack,
+			minTrades,
+			minSol
+		);
+
+		if (!success) {
+			errorMessage = outcome;
+			serumVCStatusMap = statusMap;
+			return;
+		}
+
+		let { liquidity, activity } = outcome;
+
+		Object.assign(entry.status.activity, activity);
+		Object.assign(entry.status.liquidity, liquidity);
+
+		entry.status.activity.qualified_check = true;
+		entry.status.liquidity.qualified_check = true;
+
+		entry.loading = false;
+
+		serumVCStatusMap[addr] = entry;
+		serumVCStatusMap = serumVCStatusMap;
 	};
 
 	const getQualifications = async (addr, daysBack, minTrads, minSol) => {
@@ -144,41 +182,21 @@
 				};
 			}
 
-			let daysBack = 30,
-				minTrades = 5,
-				minSol = 1;
-
-			console.log("LIVE ADDR:");
-			console.log($solanaLiveAddress);
-
-			let [success, outcome] = await getQualifications(
-				$solanaLiveAddress.toString(),
-				daysBack,
-				minTrades,
-				minSol
-			);
-
-			if (!success) {
-				errorMessage = outcome;
-				serumVCStatusMap = statusMap;
-				return;
-			}
-
-			let { liquidity, activity } = outcome;
-
-			Object.assign(entry.status.activity, activity);
-			Object.assign(entry.status.liquidity, liquidity);
-
-			entry.status.activity.qualified_check = true;
-			entry.status.liquidity.qualified_check = true;
-
-			entry.loading = false;
-
 			statusMap[$solanaLiveAddress] = entry;
 		}
 
+		if (!statusMap[testAddr]) {
+			let entry = {
+				live: false,
+				loading: false,
+				status: serumStatusMapEntry($cachedVCs, testAddr),
+			};
+
+			statusMap[testAddr] = entry;
+		}
+
 		serumVCStatusMap = statusMap;
-	    console.log(serumVCStatusMap);
+		console.log(serumVCStatusMap);
 	});
 </script>
 
@@ -190,6 +208,21 @@
 	<select
 		class="text-white p-4 text-left rounded-2xl max-w-sm mx-auto flex items-center h-16 w-full bg-blue-998 border-2 border-blue-997 mb-6"
 		bind:value={currentAddr}
+		on:change={() => {
+			let entry = serumVCStatusMap[currentAddr];
+			if (!entry) {
+				// TODO: err out here.
+				return;
+			}
+			console.log("!!!");
+			console.log(entry);
+			if (
+				!entry.status.activity.qualified_check ||
+				!entry.status.liquidity.qualified_check
+			) {
+				checkQualificaions(currentAddr, entry.live);
+			}
+		}}
 		name="currentAddress"
 	>
 		<option value="">No Address Selected</option>
@@ -197,7 +230,9 @@
 			{#if serumVCStatusMap[addr]?.live}
 				<option value={addr}>{addr}</option>
 			{:else}
-				<option value={addr}>{addr} (Not Connected)</option>
+				<option value={addr}
+					>{addr} (Not Connected {addr === testAddr ? "test address" : ""})</option
+				>
 			{/if}
 		{/each}
 	</select>
