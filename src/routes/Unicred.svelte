@@ -3,7 +3,13 @@
 	import BaseLayout from "../components/BaseLayout.svelte";
 	import loadDIDKit from "../DIDKit.js";
 
-	import { getQualifications, sybilVerifyRequest, makeEthVC } from "../uniswap";
+	import {
+		getQualifications,
+		sybilVerifyRequest,
+		makeActivityVC,
+		makeLiquidityVC,
+		makeSybilVC,
+	} from "../uniswap";
 
 	import QualifiedCredentialButton from "../components/QualifiedCredentialButton.svelte";
 	import getEthereum from "../ethereum.js";
@@ -321,7 +327,15 @@
 
 		let subj = vcEntry.qualified_proof;
 
-		let cred = makeEthVC(wallet, subj);
+		let cred;
+		switch (vcKey) {
+			case "sybil":
+				cred = makeSybilVC(wallet, subj);
+			case "activity":
+				cred = makeActivityVC(wallet, subj);
+			case "liquidity":
+				cred = makeLiquidityVC(wallet, subj);
+		}
 
 		const proofOptions = {
 			verificationMethod: "did:ethr" + wallet + "#Eip712Method2021",
