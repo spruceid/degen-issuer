@@ -7,6 +7,7 @@ import { terser } from 'rollup-plugin-terser';
 import css from 'rollup-plugin-css-only';
 import sveltePreprocess from 'svelte-preprocess';
 import replace from '@rollup/plugin-replace';
+import nodePolyfills from 'rollup-plugin-node-polyfills';
 
 const production = !process.env.ROLLUP_WATCH;
 
@@ -72,6 +73,8 @@ export default {
 		commonjs({
 			preferBuiltins: false,
 		}),
+
+		nodePolyfills(),
 
 		// required by crypto packages
 		json(),
