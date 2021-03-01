@@ -1,4 +1,5 @@
 import { request, gql } from "graphql-request";
+import { v4 as uuid } from "uuid";
 
 /* Uniswap Graph API */
 
@@ -140,18 +141,6 @@ const sendActivityQuery = async (wallet, daysBack) => {
 /* Sybil */
 const uniswapSybilListURL = "https://raw.githubusercontent.com/Uniswap/sybil-list/master/verified.json";
 
-// TODO: Verify format
-export const makeEthProof = (wallet, jws) => {
-	return {
-		type: "Secp256k1SignatureAuthentication2018",
-		// TODO: Fmt?
-		created: Date.now(),
-		proofPurpose: "assertionMethod",
-		verificationMethod: `did:ethr:${wallet}`,
-		jws: jws,
-	};
-};
-
 // Currently uses Uniswap's list.
 // Could change to a method that directory queries twitter from tweetID.
 export const sybilVerifyRequest = async (wallet) => {
@@ -203,84 +192,23 @@ const isValidSybilEntry = (entry) => {
 	return hasTimestamp && hasTweetID && hasHandle;
 };
 
-/*  credOpts is an object that looks like:
-{
-	cred: JSON Value, // the specific details for a property in the credentialSubject
-	credKey: string, // the key at which cred is found in the credentialSubject
-	credType: string, // the type to be used in the VC type array.
-	credVCContext: string | false, // the context to be used in the VC @context.
-	credVCID: string | false, // the id of the VC.
-}
-*/
-export const makeEthVC = (wallet, credOpts, proof) => {
-	let { cred, credKey, credType, credVCContext,  credVCID } = credOpts;
-
-	let credentialSubject = {
-		"@context": ["https://w3id.org/did/v1"],
-		id: `did:ethr:${wallet}`,
-		authentication: [
-			{
-				type: "Secp256k1SignatureAuthentication2018",
-				publicKey: `did:ethr:${wallet}#owner`,
-			},
-		],
-	};
-
-	credentialSubject[credKey] = cred;
-
-	let vc = {
+export const makeEthVC = (wallet, subject) => {
+	return {
 		"@context": [
 			"https://www.w3.org/2018/credentials/v1",
+			{
+				sameAs: "https://www.w3.org/TR/owl-ref/#sameAs-def",
+			},
 		],
-		issuer: credentialSubject.id,
-		type: ["VerifiableCredential", credType],
-		credentialSubject: credentialSubject,
-		proof: proof,
+		id: "urn:uuid:" + uuid(),
+		issuer: "did:ethr:" + wallet,
+		issuanceDate: new Date().toISOString(),
+		type: ["VerifiableCredential"],
+		credentialSubject: {
+			id: "did:ethr:" + wallet,
+			// TODO: Proper credentialSubject field:
+			sameAs: JSON.stringify(subject),
+		},
 	};
 
-	if (credVCContext) {
-		vc["@context"].push(credVCContext);
-	}
-
-	if (credVCID) {
-		vc.id = credVCID;
-	}
-
-	return vc;
-};
-
-export const makeUniswapSybilVC = (wallet, cred, proof) => {
-	let opts = {
-		cred: cred,
-		credKey: "sybil",
-		credType: "UniswapSybilCredential",
-		// TODO: Define the below:
-		credVCContext: false,
-		credVCID: false
-	};
-	return makeEthVC(wallet, opts, proof);
-};
-
-export const makeUniswapTradeActivityVC = (wallet, cred, proof) => {
-	let opts = {
-		cred: cred,
-		credKey: "activity",
-		credType: "UniswapTradeActivityCredential",
-		// TODO: Define the below:
-		credVCContext: false,
-		credVCID: false
-	};
-	return makeEthVC(wallet, opts, proof);
-};
-
-export const makeUniswapLiquidityVC = (wallet, cred, proof) => {
-	let opts = {
-		cred: cred,
-		credKey: "liquidity",
-		credType: "UniswapLiquidityCredential",
-		// TODO: Define the below:
-		credVCContext: false,
-		credVCID: false
-	};
-	return makeEthVC(wallet, opts, proof);
 };
