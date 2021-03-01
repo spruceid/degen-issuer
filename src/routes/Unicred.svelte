@@ -1,22 +1,12 @@
 <script>
-    import BaseLayout from "../components/BaseLayout.svelte";
-    import Input from "../components/Input.svelte";
-    import SecondaryButton from "../components/SecondaryButton.svelte";
+	import { onMount } from "svelte";
+	import BaseLayout from "../components/BaseLayout.svelte";
+	import loadDIDKit from "../DIDKit.js";
 
-	import {
-		getQualifications,
-		sybilVerifyRequest,
-		makeEthProof,
-		makeUniswapSybilVC,
-		makeUniswapTradeActivityVC,
-		makeUniswapLiquidityVC,
-	} from "../uniswap";
+	import { getQualifications, sybilVerifyRequest, makeEthVC } from "../uniswap";
 
 	import QualifiedCredentialButton from "../components/QualifiedCredentialButton.svelte";
-
-	// Assume top level passes a ethereum object with
-	// a provider which has one or more wallets.
-	export let ethereum;
+	import getEthereum from "../ethereum.js";
 
 	// TODO: Have lists of thresholds passed down for modular VC qualifications.
 	// Adjust uniswap.js to match.
@@ -43,6 +33,9 @@
         }
     */
 	$: cachedCredentialMap = {};
+
+	// will be created onLoad.
+	$: ethereum = false;
 
 	// currentAddress is the focus of the UI
 	$: currentAddress = "";
@@ -79,6 +72,8 @@
 	// TODO: Cache in local storage?
 	$: uniswapTradeHistoryMap = {};
 
+	$: DIDKit = false;
+
 	// Get auto complete help when using local storage.
 	const vcLocalStorageKey = "degenissuer_verified_credentials";
 
@@ -97,6 +92,18 @@
 			cache = JSON.parse(cachedStr);
 		}
 
+		try {
+			ethereum = await getEthereum();
+		} catch (err) {
+			errorMessage = `Error connecting to Metamask: ${err}`;
+			return;
+		}
+		try {
+			DIDKit = await loadDIDKit();
+		} catch (err) {
+			errorMessage = `Error connecting to DIDKit: ${err}`;
+			return;
+		}
 		// Connected accounts vs...
 		let liveAccounts = await getConnectedWallets();
 		// ...cached accounts as an array
@@ -128,7 +135,7 @@
 		}
 
 		// force the UI update.
-		cachedCredentialMap = cached;
+		cachedCredentialMap = cache;
 		uniswapVCStatusMap = statusMap;
 
 		if (!liveAccounts.length) {
@@ -146,7 +153,7 @@
 	) => {
 		let statusMapEntry = {};
 
-		for (let i = 0, n = credentialTypeList; i < n; i++) {
+		for (let i = 0, n = credentialTypeList.length; i < n; i++) {
 			let credentialType = credentialTypeList[i];
 			let cached = hasCredentialType(
 				cache,
@@ -312,31 +319,42 @@
 			return;
 		}
 
-		let cred = vcEntry.qualified_proof;
+		let subj = vcEntry.qualified_proof;
 
-		let proof = makeEthProof(wallet, cred);
-		let vc;
-		switch (vcKey) {
-			case "sybil":
-				vc = makeUniswapSybilVC(wallet, cred, proof);
-				break;
-			case "activity":
-				vc = makeUniswapTradeActivityVC(wallet, cred, proof);
-				break;
-			case "liquidity":
-				vc = makeUniswapLiquidityVC(wallet, cred, proof);
-				break;
-			default:
-				errorMessage = `Unknown credential: ${vcKey}`;
-				return;
+		let cred = makeEthVC(wallet, subj);
+
+		const proofOptions = {
+			verificationMethod: "did:ethr" + wallet + "#Eip712Method2021",
+		};
+		const keyType = { kty: "EC", crv: "secp256k1", alg: "ES256K-R" };
+
+		let credString = JSON.stringify(cred);
+		let prepString = await DIDKit.prepareIssueCredential(
+			credString,
+			JSON.stringify(proofOptions),
+			JSON.stringify(keyType)
+		);
+
+		let preparation = JSON.parse(prepString);
+
+		const typedData = preparation.signingInput;
+		if (!typedData || !typedData.primaryType) {
+			console.error("proof preparation:", preparation);
+			throw new Error("Expected EIP-712 TypedData");
 		}
 
-		// DEBUG: should be set up already.
-		if (!cachedCredentialMap[wallet]) {
-			cachedCredentialMap[wallet] = { uniswap: {} };
-		}
+		const ethSignature = await ethereum.request({
+			method: "eth_signTypedData_v4",
+			params: [wallet, JSON.stringify(typedData)],
+		});
 
-		cachedCredentialMap[wallet].uniswap[vcKey] = vc;
+		let vcString = await DIDKit.completeIssueCredential(
+			credString,
+			JSON.stringify(preparation),
+			ethSignature
+		);
+
+		cachedCredentialMap[wallet].uniswap[vcKey] = JSON.parse(vcString);
 		localStorage.setItem(
 			vcLocalStorageKey,
 			JSON.stringify(cachedCredentialMap)
@@ -351,141 +369,8 @@
 
 	// TODO: REMOVE, UI Debub mocks:
 	const debugUIData = () => {
-		let rActive = Math.random() < 0.5;
-		let rLiquid = Math.random() < 0.5;
-		let rSybil = Math.random() < 0.5;
-
 		let dummyCache = {
-			live_all_verified: {
-				live: true,
-				loading: false,
-				status: {
-					activity: {
-						cached: true,
-						qualified: true,
-						qualified_check: false,
-					},
-					liquidity: {
-						cached: true,
-						qualified: true,
-						qualified_check: false,
-					},
-					sybil: {
-						cached: true,
-						qualified: true,
-						qualified_check: false,
-					},
-				},
-			},
-			live_none_verified: {
-				live: true,
-				loading: false,
-				status: {
-					activity: {
-						cached: false,
-						qualified: true,
-						qualified_check: false,
-					},
-					liquidity: {
-						cached: false,
-						qualified: true,
-						qualified_check: false,
-					},
-					sybil: {
-						cached: false,
-						qualified: true,
-						qualified_check: false,
-					},
-				},
-			},
-			live_random: {
-				live: true,
-				loading: false,
-				status: {
-					activity: {
-						cached: rActive,
-						qualified: true,
-						qualified_check: false,
-					},
-					liquidity: {
-						cached: rLiquid,
-						qualified: true,
-						qualified_check: false,
-					},
-					sybil: {
-						cached: rSybil,
-						qualified: true,
-						qualified_check: false,
-					},
-				},
-			},
-			cached_all_verified: {
-				live: false,
-				loading: false,
-				status: {
-					activity: {
-						cached: true,
-						qualified: true,
-						qualified_check: false,
-					},
-					liquidity: {
-						cached: true,
-						qualified: true,
-						qualified_check: false,
-					},
-					sybil: {
-						cached: true,
-						qualified: true,
-						qualified_check: false,
-					},
-				},
-			},
-			cached_none_verified: {
-				live: false,
-				loading: false,
-				status: {
-					activity: {
-						cached: false,
-						qualified: true,
-						qualified_check: false,
-					},
-					liquidity: {
-						cached: false,
-						qualified: true,
-						qualified_check: false,
-					},
-					sybil: {
-						cached: false,
-						qualified: true,
-						qualified_check: false,
-					},
-				},
-			},
-
-			cached_random: {
-				live: false,
-				loading: false,
-				status: {
-					activity: {
-						cached: rActive,
-						qualified: true,
-						qualified_check: false,
-					},
-					liquidity: {
-						cached: rLiquid,
-						qualified: true,
-						qualified_check: false,
-					},
-					sybil: {
-						cached: rSybil,
-						qualified: true,
-						qualified_check: false,
-					},
-				},
-			},
-
 			// Two real eth addresses, the first qualifies for Sybil, the second for Activity.
-
 			"0x8d07D225a769b7Af3A923481E1FdF49180e6A265": {
 				live: true,
 				loading: false,
@@ -543,21 +428,13 @@
 			},
 		};
 
-		uniswapVCStatusMap = dummyCache;
+		return dummyCache;
 	};
+
+	onMount(onLoad);
 </script>
 
 <BaseLayout title="Uniswap Credentials" icon="/uniswap.svg">
-	<!-- TODO: REMOVE THIS AS DEBUG
-	<div>
-		<p style="color:red">Debug Mock Data</p>
-		<button
-			on:click={() => {
-				debugUIData();
-			}}>Start Debug</button
-		>
-	</div >-->
-
 	{#if errorMessage}
 		<p style="color:red">{errorMessage}</p>
 	{/if}
@@ -583,41 +460,41 @@
 		{#if loading || uniswapVCStatusMap[currentAddress].loading}
 			<p style="color:white">Updating...</p>
 		{:else}
-				<QualifiedCredentialButton
-					credentialKey="activity"
-					credentialTitle="Trade Activity"
-					statusEntry={uniswapVCStatusMap[currentAddress]}
-					issueFunc={() => {
-						alert("Implement Activity Issue Func");
-					}}
-					createFunc={() => {
-						cacheVC(currentAddress, "activity");
-					}}
-				/>
+			<QualifiedCredentialButton
+				credentialKey="activity"
+				credentialTitle="Trade Activity"
+				statusEntry={uniswapVCStatusMap[currentAddress]}
+				cachedWalletCategory={cachedCredentialMap[currentAddress]
+					? cachedCredentialMap[currentAddress]?.uniswap
+					: false}
+				createFunc={() => {
+					cacheVC(currentAddress, "activity");
+				}}
+			/>
 
-				<QualifiedCredentialButton
-					credentialKey="liquidity"
-					credentialTitle="LP"
-					statusEntry={uniswapVCStatusMap[currentAddress]}
-					issueFunc={() => {
-						alert("Implement LP Issue Func");
-					}}
-					createFunc={() => {
-						cacheVC(currentAddress, "liquidity");
-					}}
-				/>
+			<QualifiedCredentialButton
+				credentialKey="liquidity"
+				credentialTitle="LP"
+				statusEntry={uniswapVCStatusMap[currentAddress]}
+				cachedWalletCategory={cachedCredentialMap[currentAddress]
+					? cachedCredentialMap[currentAddress]?.uniswap
+					: false}
+				createFunc={() => {
+					cacheVC(currentAddress, "liquidity");
+				}}
+			/>
 
-				<QualifiedCredentialButton
-					credentialKey="sybil"
-					credentialTitle="Sybil"
-					statusEntry={uniswapVCStatusMap[currentAddress]}
-					issueFunc={() => {
-						alert("Implement Sybil Issue Func");
-					}}
-					createFunc={() => {
-						cacheVC(currentAddress, "sybil");
-					}}
-				/>
+			<QualifiedCredentialButton
+				credentialKey="sybil"
+				credentialTitle="Sybil"
+				statusEntry={uniswapVCStatusMap[currentAddress]}
+				cachedWalletCategory={cachedCredentialMap[currentAddress]
+					? cachedCredentialMap[currentAddress]?.uniswap
+					: false}
+				createFunc={() => {
+					cacheVC(currentAddress, "sybil");
+				}}
+			/>
 		{/if}
 	{/if}
 </BaseLayout>
