@@ -13,13 +13,14 @@
 	import Wallet from "@project-serum/sol-wallet-adapter";
 	import { solanaWallet, solanaLiveAddress } from "../store.js";
 	import { v4 as uuid } from "uuid";
+	import { id } from "../CredentialWallet.js";
+	import base64url from "base64url";
+	import * as polyfill from 'credential-handler-polyfill';
 
-	// TODO: Replace with Tezos? Add Solana Method?
-	import getEthereum from "../ethereum.js";
+	const ZERO32_B58 = '11111111111111111111111111111111';
 
-	$: wallets = false;
-	$: ethAddress = "";
 	$: errorMessage = "";
+	$: statusMessage = "";
 
 	// TODO: Update Devnet ?
 	let connection = new Connection(clusterApiUrl("devnet"));
@@ -38,41 +39,37 @@
 		return URL.createObjectURL(blob, { type: "application/json" });
 	};
 
-	const makeCredential = (did, solAddr, signature) => {
+	const makeCredential = (issuer, subject) => {
 		return {
 			"@context": [
 				"https://www.w3.org/2018/credentials/v1",
 				{
-					sameAs: "https://www.w3.org/TR/owl-ref/#sameAs-def",
-				},
+					sameAs: "https://www.w3.org/TR/owl-ref/#sameAs-def"
+				}
 			],
 			id: "urn:uuid:" + uuid(),
-			issuer: did,
+			issuer,
 			issuanceDate: new Date().toISOString(),
 			type: ["VerifiableCredential"],
 			credentialSubject: {
-				id: did,
-				// TODO: clearer fmt
-				sameAs: `${solAddr}:${signature}`,
+				id: subject,
+				sameAs: issuer
 			},
 		};
 	};
 
 	const signIn = async () => {
+		statusMessage = "Connecting to wallet…";
 		let w = new Wallet(providerUrl);
 		solanaWallet.set(w);
 
 		wallet.on("connect", async (pubKey) => {
+			statusMessage = "";
 			solanaLiveAddress.set(pubKey);
-			try {
-				const ethereum = await getEthereum();
-				wallets = await ethereum.request({ method: "eth_requestAccounts" });
-			} catch (err) {
-				console.error(err);
-			}
 		});
 
 		wallet.on("disconnect", () => {
+			statusMessage = "";
 			solanaWallet.set(false);
 			solanaLiveAddress.set("");
 		});
@@ -84,94 +81,77 @@
 		await wallet.disconnect();
 	};
 
+	const createCredentialInner = async () => {
+		const DIDKit = await loadDIDKit();
+		await polyfill.loadOnce();
+		const currentAddress = $solanaLiveAddress.toString();
+		const did = "did:sol:" + currentAddress;
+
+		const proofOptions = {
+			verificationMethod: did + "#SolanaMethod2021",
+			proofPurpose: "assertionMethod",
+		};
+		const keyType = { kty: "OKP", alg: "EdDSA", crv: "ed25519", "x": "" };
+		let cred = makeCredential(did, $id);
+		console.log('unsigned credential', cred)
+		let credString = JSON.stringify(cred);
+		let prepString = await DIDKit.prepareIssueCredential(
+			credString,
+			JSON.stringify(proofOptions),
+			JSON.stringify(keyType)
+		);
+		let preparation = JSON.parse(prepString);
+		console.log('pre', preparation);
+		const signingInput = preparation.signingInput;
+		if (typeof signingInput !== 'string') {
+			console.error("proof preparation:", preparation);
+			throw new Error("Expected string signing input");
+		}
+		let data = base64url.toBuffer(signingInput);
+
+		let transaction = new Transaction({
+			recentBlockhash: ZERO32_B58,
+			feePayer: new PublicKey(currentAddress),
+		});
+		let transactionInstruction = new TransactionInstruction({
+			programId: currentAddress,
+			data
+		});
+		transaction.add(transactionInstruction);
+
+		statusMessage = "Waiting for wallet…";
+		let res = await wallet.signTransaction(transaction);
+		if (
+			!res.signatures ||
+			!res.signatures.length > 0 ||
+			!res.signatures[0].signature
+		) {
+			throw Error("No signatures on transaction found");
+		}
+		let sigBytes = res.signatures[0].signature;
+		let signature = base64url.encode(Buffer.from(sigBytes));
+
+		let vcString = await DIDKit.completeIssueCredential(
+			credString,
+			prepString,
+			signature
+		);
+
+		verifiableCredential = JSON.parse(vcString);
+	};
+
 	const createCredential = async () => {
-		if (!ethAddress || !wallet) {
+		if (!wallet) {
 			return;
 		}
+		statusMessage = "Preparing credential…";
 		try {
-			let transactionInstruction = new TransactionInstruction();
-			transactionInstruction.keys = [
-				{
-					pubkey: new PublicKey($solanaLiveAddress.toString()),
-					isSigner: true,
-					isWritable: true,
-				},
-			];
-
-			// TODO: Check if this needs to be async.
-			const currentAddress = await $solanaLiveAddress.toString();
-			// TODO: Change this? May appear in sollet pop-up -- could it be plain text?
-			// transactionInstruction.programId = currentAddress;
-			transactionInstruction.programId = currentAddress;
-
-			// const did = "did:tz:"; // TODO
-			// TODO: Generalize to signed in wallet if not using did tezos.
-			const did = "did:ethr:" + ethAddress;
-
-			transactionInstruction.data = new Buffer(currentAddress);
-			let transaction = new Transaction();
-
-			await transaction.add(transactionInstruction);
-
-			let { blockhash } = await connection.getRecentBlockhash();
-			transaction.recentBlockhash = blockhash;
-			transaction.feePayer = new PublicKey(currentAddress);
-
-			let res = await wallet.signTransaction(transaction);
-			if (
-				!res.signatures ||
-				!res.signatures.length > 0 ||
-				!res.signatures[0].signature
-			) {
-				throw Error("No signatures on transaction found");
-			}
-
-			const DIDKit = await loadDIDKit();
-			let sigBytes = res.signatures[0].signature;
-			let signature = Buffer.from(sigBytes).toString("hex");
-
-			// TODO: Add requirement for Ethereum Wallet, then create proof
-			let cred = makeCredential(did, currentAddress, signature);
-
-
-			const proofOptions = {
-				verificationMethod: did + "#Eip712Method2021",
-			};
-			const keyType = { kty: "EC", crv: "secp256k1", alg: "ES256K-R" };
-
-			let credString = JSON.stringify(cred);
-			let prepString = await DIDKit.prepareIssueCredential(
-				credString,
-				JSON.stringify(proofOptions),
-				JSON.stringify(keyType)
-			);
-
-			let preparation = JSON.parse(prepString);
-
-			const typedData = preparation.signingInput;
-			if (!typedData || !typedData.primaryType) {
-				console.error("proof preparation:", preparation);
-				throw new Error("Expected EIP-712 TypedData");
-			}
-
-			const ethereum = await getEthereum();
-
-			const ethSignature = await ethereum.request({
-				method: "eth_signTypedData_v4",
-				params: [ethAddress, JSON.stringify(typedData)],
-			});
-
-			let vcString = await DIDKit.completeIssueCredential(
-				credString,
-				JSON.stringify(preparation),
-				ethSignature
-			);
-
-			verifiableCredential = JSON.parse(vcString);
+			await createCredentialInner()
 		} catch (err) {
-			// TODO: Bubble err.
 			console.error(err);
+			errorMessage = err.message;
 		}
+		statusMessage = "";
 	};
 
 	async function storeCredential(e) {
@@ -193,39 +173,31 @@
 			statusMessage = "";
 			console.error(err);
 			errorMessage = err.message;
+			verifiableCredential = null;
 		}
 	}
 </script>
 
 <BaseLayout title="Solana Address Controller" icon="/solana.svg">
-	{#if errorMessage}
-		<div class="error-container">
-			<p>{errorMessage}</p>
-		</div>
-	{/if}
+	<div class="main">
+		{#if errorMessage}
+			<div class="error-container">
+				<p>{errorMessage}</p>
+			</div>
+		{/if}
+		{#if statusMessage}
+			<p>{statusMessage}</p>
+		{/if}
+	</div>
 	{#if !$solanaLiveAddress}
 		<SecondaryButton label="Connect Wallet" onClick={signIn} />
 	{:else}
 		<SecondaryButton label="Disconnect" onClick={signOut} />
-		{#if !verifiableCredential && wallets}
-			<label for="currentAddress">Choose Eth Address to create DID</label>
-			<select
-				class="text-white p-4 text-left rounded-2xl max-w-sm mx-auto flex items-center h-16 w-full bg-blue-998 border-2 border-blue-997 mb-6"
-				bind:value={ethAddress}
-				name="ethAddress"
-			>
-				<option value="">No Address Selected</option>
-				{#each wallets as wallet}
-					<option value={wallet}>{wallet}</option>
-				{/each}
-			</select>
-
-			{#if ethAddress}
-				<SecondaryButton
-					label="Get Verifiable Credential for Solana"
-					onClick={createCredential}
-				/>
-			{/if}
+		{#if !verifiableCredential}
+			<SecondaryButton
+				label="Get Verifiable Credential for Solana"
+				onClick={createCredential}
+			/>
 		{/if}
 		{#if verifiableCredential}
 			<div class="main">

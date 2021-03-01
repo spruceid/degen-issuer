@@ -114,7 +114,8 @@
 			const webCredential = new WebCredential("VerifiablePresentation", vp);
 			const storeResult = await navigator.credentials.store(webCredential);
 			if (!storeResult) throw new Error("Unable to store credential");
-			statusMessage = JSON.stringify(storeResult);
+			console.log(storeResult)
+			statusMessage = "Credential stored.";
 		} catch(err) {
 			statusMessage = "";
 			console.error(err);
