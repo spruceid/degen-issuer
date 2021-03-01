@@ -53,7 +53,8 @@
 				}
 			};
 			const proofOptions = {
-					verificationMethod: did + "#Eip712Method2021"
+				verificationMethod: did + "#Eip712Method2021",
+				proofPurpose: "assertionMethod"
 			};
 			const keyType = {"kty":"EC","crv":"secp256k1","alg":"ES256K-R"};
 			statusMessage = "Preparing credential...";
