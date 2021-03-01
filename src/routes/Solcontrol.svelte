@@ -116,7 +116,6 @@
 			let { blockhash } = await connection.getRecentBlockhash();
 			transaction.recentBlockhash = blockhash;
 			transaction.feePayer = new PublicKey(currentAddress);
-			console.log(transaction);
 
 			let res = await wallet.signTransaction(transaction);
 			if (
@@ -124,7 +123,6 @@
 				!res.signatures.length > 0 ||
 				!res.signatures[0].signature
 			) {
-				console.log("???");
 				throw Error("No signatures on transaction found");
 			}
 
@@ -135,8 +133,6 @@
 			// TODO: Add requirement for Ethereum Wallet, then create proof
 			let cred = makeCredential(did, currentAddress, signature);
 
-			console.log("I");
-			console.log(cred);
 
 			const proofOptions = {
 				verificationMethod: did + "#Eip712Method2021",
@@ -144,17 +140,14 @@
 			const keyType = { kty: "EC", crv: "secp256k1", alg: "ES256K-R" };
 
 			let credString = JSON.stringify(cred);
-			console.log("II");
 			let prepString = await DIDKit.prepareIssueCredential(
 				credString,
 				JSON.stringify(proofOptions),
 				JSON.stringify(keyType)
 			);
 
-			console.log("III");
 			let preparation = JSON.parse(prepString);
 
-			console.log("IV");
 			const typedData = preparation.signingInput;
 			if (!typedData || !typedData.primaryType) {
 				console.error("proof preparation:", preparation);
@@ -163,7 +156,6 @@
 
 			const ethereum = await getEthereum();
 
-			console.log("V");
 			const ethSignature = await ethereum.request({
 				method: "eth_signTypedData_v4",
 				params: [ethAddress, JSON.stringify(typedData)],
@@ -176,7 +168,6 @@
 			);
 
 			verifiableCredential = JSON.parse(vcString);
-			console.log("!!!", verifiableCredential);
 		} catch (err) {
 			// TODO: Bubble err.
 			console.error(err);
