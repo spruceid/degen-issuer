@@ -60,7 +60,7 @@
 	</div>
 {/if}
 
-{#if cachedWalletCategory[credentialKey]}
+{#if cachedWalletCategory && cachedWalletCategory[credentialKey]}
 	<div class="main">
 		<p>{credentialTitle} Credential is ready.</p>
 		<div>

@@ -335,6 +335,9 @@
 				cred = makeActivityVC(wallet, subj);
 			case "liquidity":
 				cred = makeLiquidityVC(wallet, subj);
+			default:
+				errorMessage = "Unknown verified credential type: ${vcKey}";
+				return;
 		}
 
 		const proofOptions = {
