@@ -1,7 +1,14 @@
 <script>
 	import RouteLayout from "../components/RouteLayout.svelte";
 	import Button from "./../components/Button.svelte";
-	import {id} from "../CredentialWallet.js";
+	import { id } from "../CredentialWallet.js";
+
+	let currentID = false;
+	id.subscribe((i) => {
+		currentID = i;
+	});
+
+	$: userSuppliedID = "";
 </script>
 
 <RouteLayout>
@@ -12,30 +19,43 @@
 		>
 			Degen Passport
 		</h1>
-		<Button
-			href="/Credwallet"
-			label="Connect Credential Wallet"
-		/>
+		<Button href="/Credwallet" label="Connect Credential Wallet" />
+		<div>
+			<label
+				class="text-white p-4 text-left rounded-2xl max-w-sm mx-auto flex items-center h-16 w-full mb-6"
+				for="customID">Set Custom ID</label
+			>
+			<input
+				name="customID"
+				bind:value={userSuppliedID}
+				class="text-white p-4 text-left rounded-2xl max-w-sm mx-auto flex items-center h-16 w-full bg-blue-998 border-2 border-blue-997 mb-6"
+			/>
+		</div>
+
+		{#if userSuppliedID}
+			<Button
+				label="Set Custom ID"
+				onClick={() => {
+					id.set(userSuppliedID);
+				}}
+			/>
+		{/if}
 		<Button
 			href="/Ethcontrol"
 			label="Ethereum Address Controller"
-			disabled={!$id}
+			disabled={!currentID}
 		/>
 		<Button
 			href="/Solcontrol"
 			label="Solana Address Controller"
-			disabled={!$id}
+			disabled={!currentID}
 		/>
 		<Button
 			href="/Unicred"
 			label="Uniswap Credentials"
 			icon="/uniswap.svg"
-			disabled={!$id}
+			disabled={!currentID}
 		/>
-		<Button
-			href="/Srmcred"
-			label="Serum Credentials"
-			disabled={!$id}
-		/>
+		<Button href="/Srmcred" label="Serum Credentials" disabled={!currentID} />
 	</div>
 </RouteLayout>
