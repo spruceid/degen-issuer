@@ -192,22 +192,96 @@ const isValidSybilEntry = (entry) => {
 	return hasTimestamp && hasTweetID && hasHandle;
 };
 
-export const makeEthVC = (wallet, subject) => {
+export const makeActivityVC = (wallet, subject) => {
+	let context = [
+		"https://www.w3.org/2018/credentials/v1",
+		{
+			"UniswapActivityVerification": {
+				"@id": "https://uniswap.org/docs/v2/API/queries",
+				"@context": {
+					"activity": {
+						"@id": "https://uniswap.org/docs/v2/API/queries",
+						"@type": "@json"
+					}
+				}
+			}
+		}
+	];
+	let vc = makeEthVC(wallet, context);
+	vc.evidence = [
+		{
+			"type": ["UniswapActivityVerification"],
+			"sybil": subject
+		}
+	];
+
+	return vc;
+};
+
+export const makeLiquidityVC = (wallet, subject) => {
+	let context = [
+		"https://www.w3.org/2018/credentials/v1",
+		{
+			"UniswapLiquidityVerification": {
+				"@id": "https://uniswap.org/docs/v2/API/queries",
+				"@context": {
+					"activity": {
+						"@id": "https://uniswap.org/docs/v2/API/queries",
+						"@type": "@json"
+					}
+				}
+			}
+		}
+	];
+
+	let vc = makeEthVC(wallet, context);
+	vc.evidence = [
+		{
+			"type": ["UniswapLiquidityVerification"],
+			"sybil": subject
+		}
+	];
+
+	return vc;
+};
+
+export const makeSybilVC = (wallet, subject) => {
+	let context = [
+		"https://www.w3.org/2018/credentials/v1",
+		{
+			"sameAs": "https://www.w3.org/TR/owl-ref/#sameAs-def",
+			"UniswapSybilVerification": {
+				"@id": "https://github.com/Uniswap/sybil-list#verifying-an-identity",
+				"@context": {
+					"sybil": {
+						"@id": "https://github.com/Uniswap/sybil-list#schema",
+						"@type": "@json"
+					}
+				}
+			}
+		}
+	];
+	let sameAs = `https://twitter.com/i/web/status/${subject.twitter.tweetID}`;
+	let vc = makeEthVC(wallet, context);
+	vc.evidence = [
+		{
+			"type": ["UniswapSybilVerification"],
+			"sybil": subject
+		}
+	];
+	vc.credentialSubject.sameAs = sameAs;
+	return vc;
+};
+
+export const makeEthVC = (wallet, context) => {
 	return {
-		"@context": [
-			"https://www.w3.org/2018/credentials/v1",
-			{
-				sameAs: "https://www.w3.org/TR/owl-ref/#sameAs-def",
-			},
-		],
+		"@context": context,
 		id: "urn:uuid:" + uuid(),
 		issuer: "did:ethr:" + wallet,
 		issuanceDate: new Date().toISOString(),
 		type: ["VerifiableCredential"],
 		credentialSubject: {
 			id: "did:ethr:" + wallet,
-			// TODO: Proper credentialSubject field:
-			sameAs: JSON.stringify(subject),
 		},
 	};
 
