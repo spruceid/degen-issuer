@@ -331,12 +331,15 @@
 		switch (vcKey) {
 			case "sybil":
 				cred = makeSybilVC(wallet, subj);
+				break;
 			case "activity":
 				cred = makeActivityVC(wallet, subj);
+				break;
 			case "liquidity":
 				cred = makeLiquidityVC(wallet, subj);
+				break;
 			default:
-				errorMessage = "Unknown verified credential type: ${vcKey}";
+				errorMessage = `Unknown verified credential type: ${vcKey}`;
 				return;
 		}
 
