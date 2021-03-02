@@ -211,7 +211,7 @@ export const makeActivityVC = (wallet, subject) => {
 	vc.evidence = [
 		{
 			"type": ["UniswapActivityVerification"],
-			"sybil": subject
+			"activity": subject
 		}
 	];
 
@@ -238,7 +238,7 @@ export const makeLiquidityVC = (wallet, subject) => {
 	vc.evidence = [
 		{
 			"type": ["UniswapLiquidityVerification"],
-			"sybil": subject
+			"liquidity": subject
 		}
 	];
 
@@ -261,7 +261,7 @@ export const makeSybilVC = (wallet, subject) => {
 			}
 		}
 	];
-	let sameAs = `https://twitter.com/i/web/status/${subject.twitter.tweetID}`;
+	let sameAs = `https://twitter.com/@${subject.twitter.handle}`;
 	let vc = makeEthVC(wallet, context);
 	vc.evidence = [
 		{
