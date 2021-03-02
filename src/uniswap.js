@@ -261,7 +261,7 @@ export const makeSybilVC = (wallet, subject) => {
 			}
 		}
 	];
-	let sameAs = `https://twitter.com/@${subject.twitter.handle}`;
+	let sameAs = `https://twitter.com/${subject.twitter.handle}`;
 	let vc = makeEthVC(wallet, context);
 	vc.evidence = [
 		{
