@@ -4,8 +4,6 @@
 	import SecondaryButton from "../components/SecondaryButton.svelte";
 	import { Buffer } from "buffer";
 	import {
-		Connection,
-		clusterApiUrl,
 		PublicKey,
 		Transaction,
 		TransactionInstruction,
@@ -14,16 +12,14 @@
 	import { solanaWallet, solanaLiveAddress } from "../store.js";
 	import { v4 as uuid } from "uuid";
 	import { id } from "../CredentialWallet.js";
-	import base64url from "base64url";
-	import * as polyfill from 'credential-handler-polyfill';
+	import base64url from "base64url";
+	import * as polyfill from "credential-handler-polyfill";
 
-	const ZERO32_B58 = '11111111111111111111111111111111';
+	const ZERO32_B58 = "11111111111111111111111111111111";
 
 	$: errorMessage = "";
 	$: statusMessage = "";
 
-	// TODO: Update Devnet ?
-	let connection = new Connection(clusterApiUrl("devnet"));
 	const providerUrl = "https://www.sollet.io";
 
 	let wallet = false;
@@ -44,8 +40,8 @@
 			"@context": [
 				"https://www.w3.org/2018/credentials/v1",
 				{
-					sameAs: "https://www.w3.org/TR/owl-ref/#sameAs-def"
-				}
+					sameAs: "https://www.w3.org/TR/owl-ref/#sameAs-def",
+				},
 			],
 			id: "urn:uuid:" + uuid(),
 			issuer,
@@ -53,7 +49,7 @@
 			type: ["VerifiableCredential"],
 			credentialSubject: {
 				id: subject,
-				sameAs: issuer
+				sameAs: issuer,
 			},
 		};
 	};
@@ -91,9 +87,9 @@
 			verificationMethod: did + "#SolanaMethod2021",
 			proofPurpose: "assertionMethod",
 		};
-		const keyType = { kty: "OKP", alg: "EdDSA", crv: "ed25519", "x": "" };
+		const keyType = { kty: "OKP", alg: "EdDSA", crv: "ed25519", x: "" };
 		let cred = makeCredential(did, $id);
-		console.log('unsigned credential', cred)
+		console.log("unsigned credential", cred);
 		let credString = JSON.stringify(cred);
 		let prepString = await DIDKit.prepareIssueCredential(
 			credString,
@@ -101,13 +97,8 @@
 			JSON.stringify(keyType)
 		);
 		let preparation = JSON.parse(prepString);
-		console.log('pre', preparation);
+		console.log("pre", preparation);
 		const signingInput = preparation.signingInput;
-		if (typeof signingInput !== 'string') {
-			console.error("proof preparation:", preparation);
-			throw new Error("Expected string signing input");
-		}
-		let data = base64url.toBuffer(signingInput);
 
 		let transaction = new Transaction({
 			recentBlockhash: ZERO32_B58,
@@ -115,7 +106,7 @@
 		});
 		let transactionInstruction = new TransactionInstruction({
 			programId: currentAddress,
-			data
+			data: signingInput,
 		});
 		transaction.add(transactionInstruction);
 
@@ -146,7 +137,7 @@
 		}
 		statusMessage = "Preparing credential…";
 		try {
-			await createCredentialInner()
+			await createCredentialInner();
 		} catch (err) {
 			console.error(err);
 			errorMessage = err.message;

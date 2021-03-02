@@ -4,12 +4,22 @@
 	import SecondaryButton from "../components/SecondaryButton.svelte";
 	import QualifiedCredentialButton from "../components/QualifiedCredentialButton.svelte";
 	import {
-		cachedVCs,
 		solanaLiveAddress,
 		solanaWallet,
 		vcLocalStorageKey,
 	} from "../store.js";
+	import {
+		PublicKey,
+		Transaction,
+		TransactionInstruction,
+	} from "@solana/web3.js";
+
 	import { createStatusMapEntry } from "../qualificationStatus.js";
+	import loadDIDKit from "../DIDKit.js";
+	import * as polyfill from "credential-handler-polyfill";
+	import { v4 as uuid } from "uuid";
+	import base64url from "base64url";
+	import { Buffer } from "buffer";
 
 	// TODO: Move all this to qualificationsStatus.js
 	const secondsPerDay = 86400;
@@ -17,8 +27,11 @@
 		return Math.floor(Date.now() / 1000) - daysBack * secondsPerDay;
 	};
 
+	// Nonsense block for signing
+	const ZERO32_B58 = "11111111111111111111111111111111";
+
 	$: errorMessage = "";
-	$: currentAddr = "";
+	$: currentAddress = "";
 	/*
 		 TODO: make into ts type decl as rather than long comment.
         An object with eth addresses as keys and this object as values:
@@ -50,9 +63,7 @@
 		wallet = w;
 	});
 
-	cachedVCs.subscribe((v) => {
-		localStorage.setItem(vcLocalStorageKey, JSON.stringify(v));
-	});
+	$: cachedCredentialMap = {};
 
 	const serumStatusMapEntry = (cache, address) => {
 		let s = createStatusMapEntry(cache, address, "serum", [
@@ -209,25 +220,193 @@
 		return JSON.stringify(reqBody);
 	};
 
+	const cacheVC = async (solanaAddr, vcKey) => {
+		try {
+			const DIDKit = await loadDIDKit();
+			await polyfill.loadOnce();
+		} catch (err) {
+			errorMessage = `Error creating ${err} credential`;
+			return;
+		}
+
+		let targetWalletStatus = serumVCStatusMap[solanaAddr]?.status;
+		if (!targetWalletStatus) {
+			errorMessage = `Error creating ${vcKey} credential`;
+			return;
+		}
+
+		let vcEntry = targetWalletStatus[vcKey];
+		if (!targetWalletStatus) {
+			errorMessage = `Error creating ${vcKey} credential`;
+			return;
+		}
+
+		let subj = vcEntry.qualified_proof;
+
+		let cred;
+		switch (vcKey) {
+			case "activity":
+				cred = makeActivityVC(solanaAddr, subj);
+				break;
+			case "liquidity":
+				cred = makeLiquidityVC(solanaAddr, subj);
+				break;
+			default:
+				errorMessage = `Unknown verified credential type: ${vcKey}`;
+				return;
+		}
+
+		const proofOptions = {
+			verificationMethod: "did:sol:" + solanaAddr + "#SolanaMethod2021",
+			proofPurpose: "assertionMethod",
+		};
+		const keyType = { kty: "OKP", alg: "EdDSA", crv: "ed25519", x: "" };
+
+		let credString = JSON.stringify(cred);
+		let prepString = await DIDKit.prepareIssueCredential(
+			credString,
+			JSON.stringify(proofOptions),
+			JSON.stringify(keyType)
+		);
+
+		let preparation = JSON.parse(prepString);
+
+		const signingInput = preparation.signingInput;
+
+		let transaction = new Transaction({
+			recentBlockhash: ZERO32_B58,
+			feePayer: new PublicKey(currentAddress),
+		});
+
+		let transactionInstruction = new TransactionInstruction({
+			programId: currentAddress,
+			data: signingInput,
+		});
+		transaction.add(transactionInstruction);
+
+		let res = await wallet.signTransaction(transaction);
+		if (
+			!res.signatures ||
+			!res.signatures.length > 0 ||
+			!res.signatures[0].signature
+		) {
+			throw Error("No signatures on transaction found");
+		}
+		let sigBytes = res.signatures[0].signature;
+		let signature = base64url.encode(Buffer.from(sigBytes));
+
+		let vcString = await DIDKit.completeIssueCredential(
+			credString,
+			prepString,
+			signature
+		);
+
+		if (!cachedCredentialMap[solanaAddr]) {
+			cachedCredentialMap[solanaAddr] = { serum: {} };
+		}
+
+		cachedCredentialMap[solanaAddr].serum[vcKey] = JSON.parse(vcString);
+		localStorage.setItem(
+			vcLocalStorageKey,
+			JSON.stringify(cachedCredentialMap)
+		);
+
+		// Force UI Update
+		let tempSerumMap = serumVCStatusMap;
+		tempSerumMap[solanaAddr].status[vcKey].cached = true;
+		serumVCStatusMap = tempSerumMap;
+		cachedCredentialMap = JSON.parse(localStorage.getItem(vcLocalStorageKey));
+	};
+
+	const makeActivityVC = (solanaAddr, subject) => {
+		let context = [
+			"https://www.w3.org/2018/credentials/v1",
+			{
+				SerumActivityVerification: {
+					"@id":
+						"https://docs.solana.com/developing/clients/jsonrpc-api#gettransactioncount",
+					"@context": {
+						activity: {
+							"@id":
+								"https://docs.solana.com/developing/clients/jsonrpc-api#gettransactioncount",
+							"@type": "@json",
+						},
+					},
+				},
+			},
+		];
+		let vc = makeSolVC(solanaAddr, context);
+		vc.evidence = [
+			{
+				type: ["SerumActivityVerification"],
+				activity: subject,
+			},
+		];
+
+		return vc;
+	};
+
+	const makeLiquidityVC = (solanaAddr, subject) => {
+		let context = [
+			"https://www.w3.org/2018/credentials/v1",
+			{
+				SerumLiquidityVerification: {
+					"@id":
+						"https://docs.solana.com/developing/clients/jsonrpc-api#getstakeactivation",
+					"@context": {
+						activity: {
+							"@id":
+								"https://docs.solana.com/developing/clients/jsonrpc-api#getstakeactivation",
+							"@type": "@json",
+						},
+					},
+				},
+			},
+		];
+		let vc = makeSolVC(solanaAddr, context);
+		vc.evidence = [
+			{
+				type: ["SerumLiquidityVerification"],
+				activity: subject,
+			},
+		];
+
+		return vc;
+	};
+
+	const makeSolVC = (solanaAddr, context) => {
+		return {
+			"@context": context,
+			id: "urn:uuid:" + uuid(),
+			issuer: "did:sol:" + solanaAddr,
+			issuanceDate: new Date().toISOString(),
+			type: ["VerifiableCredential"],
+			credentialSubject: {
+				id: "did:sol:" + solanaAddr,
+			},
+		};
+	};
+
 	onMount(async () => {
 		// Catch uninitilized states here:
-		if (!$cachedVCs) {
+		if (!Object.keys(cachedCredentialMap).length) {
 			let vcc = localStorage.getItem(vcLocalStorageKey);
 			if (!vcc) {
 				vcc = {};
+				localStorage.setItem(vcLocalStorageKey, JSON.stringify(vcc));
 			} else {
-				vcc = json.Parse(vcLocalStorageKey);
+				vcc = JSON.parse(vcc);
 			}
 
-			$cachedVCs.set(vcc);
+			cachedCredentialMap = vcc;
 		}
 
-		let cachedAddrs = Object.keys($cachedVCs);
+		let cachedAddrs = Object.keys(cachedCredentialMap);
 		let statusMap = {};
 
 		for (let i = 0, n = cachedAddrs.length; i < n; i++) {
 			let addr = cachedAddrs[i];
-			let status = serumStatusMapEntry($cachedVCs, wallet);
+			let status = serumStatusMapEntry(cachedCredentialMap, addr);
 			statusMap[addr] = {
 				live: false,
 				loading: false,
@@ -240,10 +419,14 @@
 			if (entry) {
 				entry.live = true;
 			} else {
-				let status = serumStatusMapEntry($cachedVCs, $solanaLiveAddress);
+				let status = serumStatusMapEntry(
+					cachedCredentialMap,
+					$solanaLiveAddress
+				);
 				entry = {
 					live: true,
-					loading: true,
+					// loading: true,
+					loading: false,
 					status: status,
 				};
 			}
@@ -251,15 +434,6 @@
 			statusMap[$solanaLiveAddress] = entry;
 		}
 
-		if (!statusMap[testAddr]) {
-			let entry = {
-				live: false,
-				loading: false,
-				status: serumStatusMapEntry($cachedVCs, testAddr),
-			};
-
-			statusMap[testAddr] = entry;
-		}
 
 		serumVCStatusMap = statusMap;
 	});
@@ -272,9 +446,9 @@
 	<label for="currentAddress">Choose An Address</label>
 	<select
 		class="text-white p-4 text-left rounded-2xl max-w-sm mx-auto flex items-center h-16 w-full bg-blue-998 border-2 border-blue-997 mb-6"
-		bind:value={currentAddr}
+		bind:value={currentAddress}
 		on:change={() => {
-			let entry = serumVCStatusMap[currentAddr];
+			let entry = serumVCStatusMap[currentAddress];
 			if (!entry) {
 				// TODO: err out here.
 				return;
@@ -284,8 +458,9 @@
 				!entry.status.activity.qualified_check ||
 				!entry.status.liquidity.qualified_check
 			) {
-				checkQualificaions(currentAddr, entry.live);
+				checkQualificaions(currentAddress, entry.live);
 			}
+
 		}}
 		name="currentAddress"
 	>
@@ -303,33 +478,31 @@
 		{/each}
 	</select>
 
-	{#if currentAddr}
-		{#if serumVCStatusMap[currentAddr].loading}
+	{#if currentAddress}
+		{#if serumVCStatusMap[currentAddress].loading}
 			<p style="color:white">Updating...</p>
 		{:else}
 			<QualifiedCredentialButton
 				credentialKey="activity"
 				credentialTitle="Trade Activity"
-				statusEntry={serumVCStatusMap[currentAddr]}
-				issueFunc={() => {
-					alert("Implement Activity Issue Func");
-				}}
+				statusEntry={serumVCStatusMap[currentAddress]}
+				cachedWalletCategory={cachedCredentialMap[currentAddress]
+					? cachedCredentialMap[currentAddress]?.serum
+					: false}
 				createFunc={() => {
-					alert("Impl Activity Create Func");
-					//  cacheVC(currentAddress, "activity");
+					cacheVC(currentAddress, "activity");
 				}}
 			/>
 
 			<QualifiedCredentialButton
 				credentialKey="liquidity"
 				credentialTitle="Stake"
-				statusEntry={serumVCStatusMap[currentAddr]}
-				issueFunc={() => {
-					alert("Implement LP Issue Func");
-				}}
+				statusEntry={serumVCStatusMap[currentAddress]}
+				cachedWalletCategory={cachedCredentialMap[currentAddress]
+					? cachedCredentialMap[currentAddress]?.serum
+					: false}
 				createFunc={() => {
-					alert("Implement LP Create Func");
-					// cacheVC(currentAddress, "liquidity");
+					cacheVC(currentAddress, "liquidity");
 				}}
 			/>
 		{/if}
