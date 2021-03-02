@@ -1,4 +1,6 @@
 <script>
+	import { polyfill } from './../CredentialWallet.js';
+	import Button from './Button.svelte';
 	// import { onMount } from "svelte";
 	import SecondaryButton from "./SecondaryButton.svelte";
 
@@ -40,10 +42,10 @@
 			const vp = {
 				"@context": ["https://www.w3.org/2018/credentials/v1"],
 				type: "VerifiablePresentation",
-				verifieableCredential: cachedWalletCategory[credentialKey],
+				verifiableCredential: cachedWalletCategory[credentialKey],
 			};
-			const webCredential = new WebCredential("VerifiablePresentation", vp);
-			const storeResult = await navigator.credentials.store(webCredential);
+			// const webCredential = new WebCredential("VerifiablePresentation", vp);
+			const storeResult = await polyfill.store(vp);
 			if (!storeResult) throw new Error("Unable to store credential");
 			statusMessage = JSON.stringify(storeResult);
 		} catch (err) {
@@ -63,9 +65,7 @@
 {#if cachedWalletCategory && cachedWalletCategory[credentialKey]}
 	<div class="main">
 		<p>{credentialTitle} Credential is ready.</p>
-		<div>
-			<a href="" on:click={storeCredential}>Store credential in CHAPI wallet</a>
-		</div>
+		<Button href="" onClick={storeCredential} label="Store Credential in Degen-Passport"></Button>
 		{#if credentialUrl}
 			<div>or</div>
 			<div><a href={credentialUrl}>Download credential</a></div>

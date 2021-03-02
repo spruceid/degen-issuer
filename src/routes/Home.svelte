@@ -11,6 +11,25 @@
 	$: userSuppliedID = "";
 </script>
 
+<div class="absolute top-4 left-4 z-20">
+	{#if !userSuppliedID}
+	<Button href="/Credwallet" label="Connect Credential Wallet" />
+	{:else}
+		<Button
+			label="Set Custom ID"
+			onClick={() => {
+				id.set(userSuppliedID);
+			}}
+		/>
+	{/if}
+	<input
+		name="customID"
+		bind:value={userSuppliedID}
+		placeholder="Custom ID"
+		class="text-white mt-4 p-4 text-left rounded-2xl max-w-sm mx-auto flex items-center h-16 w-full bg-blue-998 border-2 border-blue-997"
+	/>
+</div>
+
 <RouteLayout>
 	<img src="/header_effect.svg" alt="header background effect" class="h-52" />
 	<div class="flex flex-col justify-start flex-grow mx-4">
@@ -19,35 +38,16 @@
 		>
 			Degen Passport
 		</h1>
-		<Button href="/Credwallet" label="Connect Credential Wallet" />
-		<div>
-			<label
-				class="text-white p-4 text-left rounded-2xl max-w-sm mx-auto flex items-center h-16 w-full mb-6"
-				for="customID">Set Custom ID</label
-			>
-			<input
-				name="customID"
-				bind:value={userSuppliedID}
-				class="text-white p-4 text-left rounded-2xl max-w-sm mx-auto flex items-center h-16 w-full bg-blue-998 border-2 border-blue-997 mb-6"
-			/>
-		</div>
-
-		{#if userSuppliedID}
-			<Button
-				label="Set Custom ID"
-				onClick={() => {
-					id.set(userSuppliedID);
-				}}
-			/>
-		{/if}
 		<Button
 			href="/Ethcontrol"
 			label="Ethereum Address Controller"
+			icon="/ethereum.svg"
 			disabled={!currentID}
 		/>
 		<Button
 			href="/Solcontrol"
 			label="Solana Address Controller"
+			icon="/solana.svg"
 			disabled={!currentID}
 		/>
 		<Button
@@ -56,6 +56,11 @@
 			icon="/uniswap.svg"
 			disabled={!currentID}
 		/>
-		<Button href="/Srmcred" label="Serum Credentials" disabled={!currentID} />
+		<Button
+			href="/Srmcred"
+			label="Serum Credentials"
+			icon="/serum.svg"
+			disabled={!currentID} 
+		/>
 	</div>
 </RouteLayout>

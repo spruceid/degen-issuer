@@ -1,7 +1,25 @@
-import * as polyfill from 'credential-handler-polyfill';
-
 // The user's id, as a reactive store
 // https://svelte.dev/docs#Store_contract
+
+const EXTENSION_ID = "mooongagddnmjjjkbiadledpghgoecll";
+
+export const polyfill = {
+  get: (event) => {
+    return new Promise((resolve, _) => chrome.runtime.sendMessage(
+      EXTENSION_ID,
+      { type: "get", event },
+      resolve
+    ));
+  },
+  store: (event) => {
+    return new Promise((resolve, _) => chrome.runtime.sendMessage(
+      EXTENSION_ID,
+      { type: "store", event },
+      resolve
+    ));
+  },
+};
+
 export let id = {
 	id: null,
 	subscribers: [],
@@ -19,40 +37,20 @@ export let id = {
 	}
 };
 
-// Request the user's id, using DIDAuth over CHAPI, without verification.
 // Updates the exported id store and returns the id.
 export async function connect() {
-	await polyfill.loadOnce();
 	const credentialQuery = {
-		web: {
-			VerifiablePresentation: {
-				query: [{type: "DIDAuth"}]
-			}
-		}
+    query: [{type: "DIDAuth"}]
 	};
-	const webCredential = await navigator.credentials.get(credentialQuery);
-	if (!webCredential) {
-		throw new Error("Unable to connect to credential wallet");
-	}
-	if (webCredential.type !== 'web') {
-		console.error(webCredential)
-		throw new Error("Unexpected web credential type: " + webCredential.type);
-	}
-	if (webCredential.dataType !== 'VerifiablePresentation') {
-		console.error(webCredential)
-		throw new Error("Unexpected web credential data type: " + webCredential.dataType);
-	}
-	const vp = webCredential.data;
-	if (!vp) {
-		console.error(webCredential)
-		throw new Error("Missing web credential data");
-	}
+
+  const vp = await polyfill.get(credentialQuery);
 	// Skip verifying the VP and just trust the wallet.
 	const holder = vp.holder;
 	if (!holder) {
-		console.error(webCredential)
+		console.error(vp)
 		throw new Error("Missing verifiable presentation holder");
 	}
 	id.set(holder)
+	console.log(holder);
 	return holder;
 }

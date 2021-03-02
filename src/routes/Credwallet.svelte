@@ -1,5 +1,6 @@
 <script>
 	import BaseLayout from "../components/BaseLayout.svelte";
+import RouteLayout from "../components/RouteLayout.svelte";
 	import SecondaryButton from "../components/SecondaryButton.svelte";
 	import * as CredentialWallet from "../CredentialWallet.js";
 
@@ -19,33 +20,14 @@
 	}
 </script>
 
-<style>
-	.content {
-		max-width: 72ex;
-		color: #eee;
-		margin: 0 auto;
-	}
-	.error {
-		color: red;
-	}
-	a {
-		text-decoration: underline;
-	}
-	p {
-		margin: 1em 0;
-	}
-</style>
-
-<BaseLayout title="Connect Credential Wallet" allowUnauthed=true>
+<RouteLayout title="Connect Credential Wallet" allowUnauthed={true}>
 	{#if errorMessage}
-		<div class="content">
-			<p class="error">{errorMessage}</p>
-		</div>
+		<p class="text-red-700">{errorMessage}</p>
 	{/if}
 	{#if statusMessage}
-		<p class="content">{statusMessage}</p>
+		<p class="text-white">{statusMessage}</p>
 	{:else}
 		<SecondaryButton label="Connect Wallet" onClick={connectWallet} />
 	{/if}
-	<p class="content"><a href="/">Back</a>
-</BaseLayout>
+	<p class="text-white"><a href="/">Back</a>
+</RouteLayout>
