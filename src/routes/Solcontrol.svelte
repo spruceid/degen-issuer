@@ -9,7 +9,11 @@
 		TransactionInstruction,
 	} from "@solana/web3.js";
 	import Wallet from "@project-serum/sol-wallet-adapter";
-	import { solanaWallet, solanaLiveAddress } from "../store.js";
+	import {
+		solanaWallet,
+		solanaLiveAddress,
+		vcLocalStorageKey,
+	} from "../store.js";
 	import { v4 as uuid } from "uuid";
 	import { id } from "../CredentialWallet.js";
 	import base64url from "base64url";
@@ -19,6 +23,7 @@
 
 	$: errorMessage = "";
 	$: statusMessage = "";
+	$: cachedCredentialMap = {};
 
 	const providerUrl = "https://www.sollet.io";
 
@@ -62,6 +67,28 @@
 		wallet.on("connect", async (pubKey) => {
 			statusMessage = "";
 			solanaLiveAddress.set(pubKey);
+
+			if (!Object.keys(cachedCredentialMap).length) {
+				let vcc = localStorage.getItem(vcLocalStorageKey);
+				if (!vcc) {
+					vcc = {};
+					localStorage.setItem(vcLocalStorageKey, JSON.stringify(vcc));
+				} else {
+					vcc = JSON.parse(vcc);
+				}
+
+				cachedCredentialMap = vcc;
+			}
+
+			if (
+				cachedCredentialMap[$solanaLiveAddress] &&
+				cachedCredentialMap[$solanaLiveAddress]?.control?.proof
+			) {
+				verifiableCredential =
+					cachedCredentialMap[$solanaLiveAddress].control.proof;
+				credentialUrl = createJsonBlobUrl(verifiableCredential);
+				statusMessage = "";
+			}
 		});
 
 		wallet.on("disconnect", () => {
@@ -129,6 +156,20 @@
 		);
 
 		verifiableCredential = JSON.parse(vcString);
+		if (!cachedCredentialMap[$solanaLiveAddress]) {
+			cachedCredentialMap[$solanaLiveAddress] = { control: {} };
+		}
+
+		if (!cachedCredentialMap[$solanaLiveAddress]?.control?.proof) {
+			cachedCredentialMap[$solanaLiveAddress].control = {};
+			cachedCredentialMap[
+				$solanaLiveAddress
+			].control.proof = verifiableCredential;
+			localStorage.setItem(
+				vcLocalStorageKey,
+				JSON.stringify(cachedCredentialMap)
+			);
+		}
 	};
 
 	const createCredential = async () => {

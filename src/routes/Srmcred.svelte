@@ -32,6 +32,7 @@
 
 	$: errorMessage = "";
 	$: currentAddress = "";
+	$: statusMessage = "";
 	/*
 		 TODO: make into ts type decl as rather than long comment.
         An object with eth addresses as keys and this object as values:
@@ -284,6 +285,7 @@
 		});
 		transaction.add(transactionInstruction);
 
+		statusMessage = "Waiting on wallet...";
 		let res = await wallet.signTransaction(transaction);
 		if (
 			!res.signatures ||
@@ -312,6 +314,7 @@
 		);
 
 		// Force UI Update
+		statusMessage = "";
 		let tempSerumMap = serumVCStatusMap;
 		tempSerumMap[solanaAddr].status[vcKey].cached = true;
 		serumVCStatusMap = tempSerumMap;
@@ -434,12 +437,14 @@
 			statusMap[$solanaLiveAddress] = entry;
 		}
 
-
 		serumVCStatusMap = statusMap;
 	});
 </script>
 
 <BaseLayout title="Serum Credentials" icon="/serum.svg">
+	{#if statusMessage}
+		<p>{statusMessage}</p>
+	{/if}
 	{#if !$solanaLiveAddress}
 		<SecondaryButton label="Sign in" href="/Solcontrol" icon="/solana.svg" />
 	{/if}
@@ -460,7 +465,6 @@
 			) {
 				checkQualificaions(currentAddress, entry.live);
 			}
-
 		}}
 		name="currentAddress"
 	>

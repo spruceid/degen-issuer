@@ -1,4 +1,5 @@
 <script>
+    import {onMount} from "svelte";
 	import BaseLayout from "../components/BaseLayout.svelte";
 	import SecondaryButton from "../components/SecondaryButton.svelte";
 	import loadDIDKit from '../DIDKit.js';
@@ -6,6 +7,8 @@
 	import { v4 as uuid } from 'uuid';
 	import * as polyfill from 'credential-handler-polyfill';
 	import {id} from "../CredentialWallet.js";
+	import { vcLocalStorageKey } from "../store.js";
+
 
 	export let params;
 	$: accountId = params.accountId;
@@ -18,6 +21,7 @@
 	let credentialString;
 	let signature;
 	let preparation;
+	$: cachedCredentialMap = {};
 
 	const createJsonBlobUrl = object => {
 		if (!object) return null;
@@ -27,7 +31,6 @@
 
 	const toHex = value => ('0' + value.toString(16)).substr(-2)
 
-	if ($id) go()
 	function go() {
 		Promise.all([
 			(async () => DIDKit = await loadDIDKit())(),
@@ -91,6 +94,15 @@
 		.then(JSON.parse)
 		.then(vc => {
 			verifiableCredential = vc;
+		    if (!cachedCredentialMap[accountId]) {
+			  cachedCredentialMap[accountId] = { control: {} }
+		    }
+
+		    if (!cachedCredentialMap[accountId]?.control?.proof){
+			  cachedCredentialMap[accountId].control = {};
+			  cachedCredentialMap[accountId].control.proof = verifiableCredential;
+			  localStorage.setItem(vcLocalStorageKey, JSON.stringify(cachedCredentialMap))
+		    }
 			statusMessage = "";
 		})
 		.catch(err => {
@@ -122,6 +134,28 @@
 			errorMessage = err.message;
 		}
 	}
+
+    onMount(() => {
+	  if (!Object.keys(cachedCredentialMap).length) {
+		  let vcc = localStorage.getItem(vcLocalStorageKey);
+		  if (!vcc) {
+			  vcc = {};
+			  localStorage.setItem(vcLocalStorageKey, JSON.stringify(vcc));
+		  } else {
+			  vcc = JSON.parse(vcc);
+		  }
+
+		  cachedCredentialMap = vcc;
+	  }
+
+	  if (cachedCredentialMap[accountId] && cachedCredentialMap[accountId]?.control?.proof) {
+		verifiableCredential = cachedCredentialMap[accountId].control.proof;
+		credentialUrl = createJsonBlobUrl(verifiableCredential);
+		statusMessage = "";
+	  } else {
+		go();
+	  }
+    });
 </script>
 
 <style>
