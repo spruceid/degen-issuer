@@ -1,5 +1,12 @@
 # Degen Issuer
 
+The Degen Issuer is a demo application demonstrating
+basic cross-chain credential issuance to prove 
+both blockchain account control and trading history. 
+The Degen Issuer demo is built to work with Spruce's 
+credential wallet which uses did:tz as the default 
+DID method.
+
 ## Get started
 
 Install the dependencies...
