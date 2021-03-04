@@ -223,7 +223,6 @@
 	const cacheVC = async (solanaAddr, vcKey) => {
 		try {
 			const DIDKit = await loadDIDKit();
-			await polyfill.loadOnce();
 		} catch (err) {
 			errorMessage = `Error creating ${err} credential`;
 			return;
@@ -443,7 +442,8 @@
 	{#if !$solanaLiveAddress}
 		<SecondaryButton label="Sign in" href="/Solcontrol" icon="/solana.svg" />
 	{/if}
-	<label for="currentAddress">Choose An Address</label>
+	<p><label for="currentAddress">Choose An Address</label></p>
+	<!-- svelte-ignore a11y-no-onchange -->
 	<select
 		class="text-white p-4 text-left rounded-2xl max-w-sm mx-auto flex items-center h-16 w-full bg-blue-998 border-2 border-blue-997 mb-6"
 		bind:value={currentAddress}

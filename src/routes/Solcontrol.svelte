@@ -1,4 +1,5 @@
 <script>
+	import { polyfill } from './../CredentialWallet.js';
 	import BaseLayout from "../components/BaseLayout.svelte";
 	import loadDIDKit from "../DIDKit.js";
 	import SecondaryButton from "../components/SecondaryButton.svelte";
@@ -13,7 +14,7 @@
 	import { v4 as uuid } from "uuid";
 	import { id } from "../CredentialWallet.js";
 	import base64url from "base64url";
-	import * as polyfill from "credential-handler-polyfill";
+	import Button from "../components/Button.svelte";
 
 	const ZERO32_B58 = "11111111111111111111111111111111";
 
@@ -79,7 +80,6 @@
 
 	const createCredentialInner = async () => {
 		const DIDKit = await loadDIDKit();
-		await polyfill.loadOnce();
 		const currentAddress = $solanaLiveAddress.toString();
 		const did = "did:sol:" + currentAddress;
 
@@ -156,8 +156,8 @@
 				type: "VerifiablePresentation",
 				verifiableCredential,
 			};
-			const webCredential = new WebCredential("VerifiablePresentation", vp);
-			const storeResult = await navigator.credentials.store(webCredential);
+			// const webCredential = new WebCredential("VerifiablePresentation", vp);
+			const storeResult = await polyfill.store(vp);
 			if (!storeResult) throw new Error("Unable to store credential");
 			statusMessage = JSON.stringify(storeResult);
 		} catch (err) {
@@ -193,11 +193,7 @@
 		{#if verifiableCredential}
 			<div class="main">
 				<p>Your credential is ready.</p>
-				<div>
-					<a href="" on:click={storeCredential}
-						>Store credential in CHAPI wallet</a
-					>
-				</div>
+				<Button href="" onClick={storeCredential} label="Store Credential in Degen-Passport"></Button>
 				{#if credentialUrl}
 					<div>or</div>
 					<div><a href={credentialUrl}>Download credential</a></div>

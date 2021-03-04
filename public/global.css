@@ -4,6 +4,7 @@ html, body {
 	margin: 0px;
 	padding: 0px;
 	font-family: 'Poppins' !important;
+	color: white;
 }
 
 a {
@@ -29,4 +30,9 @@ h2  {
 
 label {
 	display: block;
+}
+
+p {
+	color: white;
+	text-align: center;
 }

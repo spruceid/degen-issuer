@@ -1,11 +1,12 @@
 <script>
+	import Button from './../components/Button.svelte';
+	import { polyfill, id } from '../CredentialWallet.js';
 	import BaseLayout from "../components/BaseLayout.svelte";
-	import SecondaryButton from "../components/SecondaryButton.svelte";
 	import loadDIDKit from '../DIDKit.js';
 	import getEthereum from '../ethereum.js';
 	import { v4 as uuid } from 'uuid';
-	import * as polyfill from 'credential-handler-polyfill';
-	import {id} from "../CredentialWallet.js";
+import RouteLayout from '../components/RouteLayout.svelte';
+import Menu from '../components/Menu.svelte';
 
 	export let params;
 	$: accountId = params.accountId;
@@ -32,7 +33,6 @@
 		Promise.all([
 			(async () => DIDKit = await loadDIDKit())(),
 			(async () => ethereum = await getEthereum())(),
-			polyfill.loadOnce()
 		])
 		.then(() => {
 			console.log('DIDKit version:', DIDKit.getVersion())
@@ -105,16 +105,15 @@
 		errorMessage = "";
 		statusMessage = "Storing credential…";
 		try {
-			// Wrap VC in a unsigned VP for CHAPI
+			// Wrap VC in a unsigned VP
 			const vp = {
 				"@context": ["https://www.w3.org/2018/credentials/v1"],
 				type: "VerifiablePresentation",
 				verifiableCredential
 			};
-			const webCredential = new WebCredential("VerifiablePresentation", vp);
-			const storeResult = await navigator.credentials.store(webCredential);
+			// const webCredential = new WebCredential("VerifiablePresentation", vp);
+			const storeResult = await polyfill.store(vp);
 			if (!storeResult) throw new Error("Unable to store credential");
-			console.log(storeResult)
 			statusMessage = "Credential stored.";
 		} catch(err) {
 			statusMessage = "";
@@ -124,39 +123,18 @@
 	}
 </script>
 
-<style>
-	.main {
-		max-width: 72ex;
-		color: #eee;
-		margin: 0 auto;
-	}
-	.error-container {
-		color: red;
-	}
-	a {
-		text-decoration: underline;
-	}
-	p {
-		margin: 1em 0;
-	}
-</style>
-
 <BaseLayout title="Ethereum Address Controller" icon="/ethereum.svg">
-	<div class="main">
 	{#if errorMessage}
-		<div class="error-container">
-			<p>{errorMessage}</p>
-		</div>
+		<p class="text-red-600">{errorMessage}</p>
 	{/if}
 	{#if statusMessage}
-	<p>{statusMessage}</p>
+		<p>{statusMessage}</p>
 	{/if}
 	{#if credentialUrl}
 		<p>Your credential is ready.</p>
-		<div><a href={credentialUrl} on:click={storeCredential}>Store credential in CHAPI wallet</a></div>
-		<div>or</div>
-		<div><a href={credentialUrl}>Download credential</a></div>
+		<Button href="" onClick={storeCredential} label="Store Credential in Degen-Passport"></Button>
+		<p>or</p>
+		<p><a href={credentialUrl}>Download credential</a></p>
 	{/if}
 	<p><a href="/Ethcontrol/pick">Back</a></p>
-	</div>
 </BaseLayout>
